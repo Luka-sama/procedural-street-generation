@@ -52,10 +52,10 @@ public class StreamlineGenerator
     private readonly Vector2 _worldDimensions;
     private readonly StreamlineParams _parameters;
 
-    public readonly List<List<Vector2>> AllStreamlines = new();
-    public readonly List<List<Vector2>> StreamlinesMajor = new();
-    public readonly List<List<Vector2>> StreamlinesMinor = new();
-    public readonly List<List<Vector2>> AllStreamlinesSimple = new(); // Reduced vertex count
+    public List<List<Vector2>> AllStreamlines { get; } = new();
+    public List<List<Vector2>> StreamlinesMajor { get; } = new();
+    public List<List<Vector2>> StreamlinesMinor { get; } = new();
+    public List<List<Vector2>> AllStreamlinesSimple { get; } = new();
 
     /**
      * Uses world-space coordinates
@@ -275,7 +275,7 @@ public class StreamlineGenerator
     }
     
     // Square distance from a point to a segment
-    float GetSqSegDist(Vector2 p, Vector2 p1, Vector2 p2)
+    private float GetSqSegDist(Vector2 p, Vector2 p1, Vector2 p2)
     {
         float x = p1.X;
         float y = p1.Y;
@@ -303,8 +303,8 @@ public class StreamlineGenerator
 
         return dx * dx + dy * dy;
     }
-    
-    void SimplifyDpStep(List<Vector2> points, int first, int last, float sqTolerance, List<Vector2> simplified)
+
+    private void SimplifyDpStep(List<Vector2> points, int first, int last, float sqTolerance, List<Vector2> simplified)
     {
         float maxSqDist = 0;
         int index = 0;
@@ -501,7 +501,7 @@ public class StreamlineGenerator
      * testSample is candidate to pushed on end of streamlineForwards
      * returns true if streamline collides with itself
      */
-    protected bool DoesStreamlineCollideSelf(Vector2 testSample, List<Vector2> streamlineForwards, List<Vector2> streamlineBackwards)
+    private bool DoesStreamlineCollideSelf(Vector2 testSample, List<Vector2> streamlineForwards, List<Vector2> streamlineBackwards)
     {
         // Streamline long enough
         if (streamlineForwards.Count > _nStreamlineLookBack)

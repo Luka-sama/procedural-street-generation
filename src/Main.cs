@@ -37,7 +37,7 @@ public partial class Main : Node2D
         DrawRoads();
     }
 
-    void GenerateTensorField()
+    private void GenerateTensorField()
     {
         var noiseParams = new NoiseParams
         {
@@ -100,10 +100,6 @@ public partial class Main : Node2D
 
     private List<Vector2> GetCrossLocations()
     {
-        /*List<Vector2> crossLocations = new List<Vector2>();
-        crossLocations.Add(new Vector2(15.5f, 15.5f));
-        return crossLocations;*/
-        
         // Gets grid of points for vector field vis in world space
         
         float zoom = 1;

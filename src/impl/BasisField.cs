@@ -12,8 +12,8 @@ public enum FieldType
  */
 public abstract class BasisField
 {
-    public abstract int FieldType { get; }
-    public Vector2 Centre;
+    public abstract FieldType FieldType { get; }
+    public Vector2 Centre { get; }
     private double _size;
     private double _decay;
 
@@ -62,7 +62,7 @@ public abstract class BasisField
 
 public class Grid : BasisField
 {
-    public override int FieldType => (int)global::FieldType.Grid;
+    public override FieldType FieldType => FieldType.Grid;
     private double _theta;
 
     public Grid(Vector2 centre, double size, double decay, double theta) : base(centre, size, decay)
@@ -85,7 +85,7 @@ public class Grid : BasisField
 
 public class Radial : BasisField
 {
-    public override int FieldType => (int)global::FieldType.Radial;
+    public override FieldType FieldType => FieldType.Radial;
 
     public Radial(Vector2 centre, double size, double decay) : base(centre, size, decay)
     {
