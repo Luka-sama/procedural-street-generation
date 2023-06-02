@@ -4,11 +4,11 @@ using System.Collections.Generic;
 
 public struct NoiseParams
 {
-    public bool globalNoise;
-    public double noiseSizePark;
-    public double noiseAnglePark; // Degrees
-    public double noiseSizeGlobal;
-    public double noiseAngleGlobal;
+    public bool GlobalNoise;
+    public double NoiseSizePark;
+    public double NoiseAnglePark; // Degrees
+    public double NoiseSizeGlobal;
+    public double NoiseAngleGlobal;
 }
 
 /**
@@ -17,71 +17,71 @@ public struct NoiseParams
  */
 public class TensorField
 {
-    private List<BasisField> basisFields = new List<BasisField>();
-    private FastNoiseLite noise;
+    private readonly List<BasisField> _basisFields = new();
+    private readonly FastNoiseLite _noise;
 
-    public List<List<Vector2>> parks = new List<List<Vector2>>();
-    public List<Vector2> sea = new List<Vector2>();
-    public List<Vector2> river = new List<Vector2>();
-    public bool ignoreRiver = false;
+    private readonly List<List<Vector2>> _parks = new();
+    private readonly List<Vector2> _sea = new();
+    private readonly List<Vector2> _river = new();
+    private readonly bool _ignoreRiver = false;
 
-    public bool smooth = false;
+    private readonly bool _smooth = false;
 
-    public NoiseParams noiseParams;
+    private NoiseParams _noiseParams;
 
     public TensorField(NoiseParams noiseParams)
     {
-        this.noiseParams = noiseParams;
-        this.noise = new FastNoiseLite();
-        this.noise.NoiseType = FastNoiseLite.NoiseTypeEnum.Simplex;
+        _noiseParams = noiseParams;
+        _noise = new FastNoiseLite();
+        _noise.NoiseType = FastNoiseLite.NoiseTypeEnum.Simplex;
     }
 
     public void EnableGlobalNoise(double angle, double size)
     {
-        noiseParams.globalNoise = true;
-        noiseParams.noiseAngleGlobal = angle;
-        noiseParams.noiseSizeGlobal = size;
+        _noiseParams.GlobalNoise = true;
+        _noiseParams.NoiseAngleGlobal = angle;
+        _noiseParams.NoiseSizeGlobal = size;
     }
 
     public void DisableGlobalNoise()
     {
-        noiseParams.globalNoise = false;
+        _noiseParams.GlobalNoise = false;
     }
 
     public void AddGrid(Vector2 centre, double size, double decay, double theta)
     {
         var grid = new Grid(centre, size, decay, theta);
-        this.AddField(grid);
+        AddField(grid);
     }
 
     public void AddRadial(Vector2 centre, double size, double decay)
     {
         var radial = new Radial(centre, size, decay);
-        this.AddField(radial);
+        AddField(radial);
     }
 
-    protected void AddField(BasisField field)
+    private void AddField(BasisField field)
     {
-        this.basisFields.Add(field);
+        _basisFields.Add(field);
     }
 
     protected void RemoveField(BasisField field)
     {
-        this.basisFields.Remove(field);
+        _basisFields.Remove(field);
     }
 
     public void Reset()
     {
-        this.basisFields.Clear();
-        this.parks.Clear();
-        this.sea.Clear();
-        this.river.Clear();
+        _basisFields.Clear();
+        _parks.Clear();
+        _sea.Clear();
+        _river.Clear();
     }
 
     public List<Vector2> GetCentrePoints()
     {
         var centrePoints = new List<Vector2>();
-        foreach (var basisField in this.basisFields)
+        foreach (var basisField in _basisFields)
         {
             centrePoints.Add(basisField.Centre);
         }
@@ -90,42 +90,42 @@ public class TensorField
 
     public List<BasisField> GetBasisFields()
     {
-        return basisFields;
+        return _basisFields;
     }
 
     public Tensor SamplePoint(Vector2 point)
     {
-        if (!this.OnLand(point))
+        if (!OnLand(point))
         {
             // Degenerate point
             return Tensor.Zero;
         }
 
         // Default field is a grid
-        if (this.basisFields.Count == 0)
+        if (_basisFields.Count == 0)
         {
             return new Tensor(1, new double[] { 0, 0 });
         }
 
         var tensorAcc = Tensor.Zero;
-        foreach (var field in this.basisFields)
+        foreach (var field in _basisFields)
         {
-            tensorAcc.Add(field.GetWeightedTensor(point, smooth), smooth);
+            tensorAcc.Add(field.GetWeightedTensor(point, _smooth), _smooth);
         }
 
         // Add rotational noise for parks - range -pi/2 to pi/2
-        foreach (var park in this.parks)
+        foreach (var park in _parks)
         {
             if (PolygonUtil.InsidePolygon(point, park))
             {
-                tensorAcc.Rotate(this.GetRotationalNoise(point, this.noiseParams.noiseSizePark, this.noiseParams.noiseAnglePark));
+                tensorAcc.Rotate(GetRotationalNoise(point, _noiseParams.NoiseSizePark, _noiseParams.NoiseAnglePark));
                 break;
             }
         }
 
-        if (this.noiseParams.globalNoise)
+        if (_noiseParams.GlobalNoise)
         {
-            tensorAcc.Rotate(this.GetRotationalNoise(point, this.noiseParams.noiseSizeGlobal, this.noiseParams.noiseAngleGlobal));
+            tensorAcc.Rotate(GetRotationalNoise(point, _noiseParams.NoiseSizeGlobal, _noiseParams.NoiseAngleGlobal));
         }
 
         return tensorAcc;
@@ -134,25 +134,25 @@ public class TensorField
     /**
      * Noise Angle is in degrees
      */
-    public double GetRotationalNoise(Vector2 point, double noiseSize, double noiseAngle)
+    private double GetRotationalNoise(Vector2 point, double noiseSize, double noiseAngle)
     {
-        return noise.GetNoise2D((float) (point.X / noiseSize), (float)(point.Y / noiseSize)) * noiseAngle * Math.PI / 180;
+        return _noise.GetNoise2D((float) (point.X / noiseSize), (float)(point.Y / noiseSize)) * noiseAngle * Math.PI / 180;
     }
 
     public bool OnLand(Vector2 point)
     {
-        bool inSea = PolygonUtil.InsidePolygon(point, this.sea);
-        if (this.ignoreRiver)
+        bool inSea = PolygonUtil.InsidePolygon(point, _sea);
+        if (_ignoreRiver)
         {
             return !inSea;
         }
 
-        return !inSea && !PolygonUtil.InsidePolygon(point, this.river);
+        return !inSea && !PolygonUtil.InsidePolygon(point, _river);
     }
 
     public bool InParks(Vector2 point)
     {
-        foreach (var park in this.parks)
+        foreach (var park in _parks)
         {
             if (PolygonUtil.InsidePolygon(point, park))
             {

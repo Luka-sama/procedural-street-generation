@@ -12,90 +12,90 @@ public enum FieldType
  */
 public abstract class BasisField
 {
-    public abstract int FIELD_TYPE { get; }
+    public abstract int FieldType { get; }
     public Vector2 Centre;
-    protected double size;
-    protected double decay;
+    private double _size;
+    private double _decay;
 
-    public BasisField(Vector2 centre, double size, double decay)
+    protected BasisField(Vector2 centre, double size, double decay)
     {
-        this.Centre = centre;
-        this.size = size;
-        this.decay = decay;
+        Centre = centre;
+        _size = size;
+        _decay = decay;
     }
 
     public double Decay
     {
-        set { this.decay = value; }
+        set => _decay = value;
     }
 
     public double Size
     {
-        set { this.size = value; }
+        set => _size = value;
     }
 
-    public abstract Tensor GetTensor(Vector2 point);
+    protected abstract Tensor GetTensor(Vector2 point);
 
     public Tensor GetWeightedTensor(Vector2 point, bool smooth)
     {
-        return this.GetTensor(point).Scale(this.GetTensorWeight(point, smooth));
+        return GetTensor(point).Scale(GetTensorWeight(point, smooth));
     }
 
     /**
      * Interpolates between (0 and 1)^decay
      */
-    protected double GetTensorWeight(Vector2 point, bool smooth)
+    private double GetTensorWeight(Vector2 point, bool smooth)
     {
-        double normDistanceToCentre = (point - this.Centre).Length() / this.size;
+        double normDistanceToCentre = (point - Centre).Length() / _size;
         if (smooth)
         {
-            return Math.Pow(normDistanceToCentre, -this.decay);
+            return Math.Pow(normDistanceToCentre, -_decay);
         }
         // Stop (** 0) turning weight into 1, filling screen even when outside 'size'
-        if (this.decay == 0 && normDistanceToCentre >= 1)
+        if (_decay == 0 && normDistanceToCentre >= 1)
         {
             return 0;
         }
-        return Math.Max(0, Math.Pow(1 - normDistanceToCentre, this.decay));
+        return Math.Max(0, Math.Pow(1 - normDistanceToCentre, _decay));
     }
 }
 
 public class Grid : BasisField
 {
-    public override int FIELD_TYPE => (int)FieldType.Grid;
+    public override int FieldType => (int)global::FieldType.Grid;
     private double _theta;
 
     public Grid(Vector2 centre, double size, double decay, double theta) : base(centre, size, decay)
     {
-        this._theta = theta;
+        _theta = theta;
     }
 
     public double Theta
     {
-        set { this._theta = value; }
+        set => _theta = value;
     }
 
-    public override Tensor GetTensor(Vector2 point)
+    protected override Tensor GetTensor(Vector2 point)
     {
-        double cos = Math.Cos(2 * this._theta);
-        double sin = Math.Sin(2 * this._theta);
-        return new Tensor(1, new double[] { cos, sin });
+        double cos = Math.Cos(2 * _theta);
+        double sin = Math.Sin(2 * _theta);
+        return new Tensor(1, new[] { cos, sin });
     }
 }
 
 public class Radial : BasisField
 {
-    public override int FIELD_TYPE => (int)FieldType.Radial;
+    public override int FieldType => (int)global::FieldType.Radial;
 
     public Radial(Vector2 centre, double size, double decay) : base(centre, size, decay)
     {
     }
 
-    public override Tensor GetTensor(Vector2 point)
+    protected override Tensor GetTensor(Vector2 point)
     {
-        Vector2 t = point - this.Centre;
+        Vector2 t = point - Centre;
         double t1 = Math.Pow(t.Y, 2) - Math.Pow(t.X, 2);
         double t2 = -2 * t.X * t.Y;
-        return new Tensor(1, new double[] { t1, t2 });
+        return new Tensor(1, new[] { t1, t2 });
     }
 }

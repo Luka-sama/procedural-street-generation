@@ -2,18 +2,18 @@
 
 public abstract class FieldIntegrator
 {
-    protected TensorField field;
+    private readonly TensorField _field;
 
-    public FieldIntegrator(TensorField field)
+    protected FieldIntegrator(TensorField field)
     {
-        this.field = field;
+        _field = field;
     }
 
     public abstract Vector2 Integrate(Vector2 point, bool major);
 
     protected Vector2 SampleFieldVector(Vector2 point, bool major)
     {
-        Tensor tensor = this.field.SamplePoint(point);
+        Tensor tensor = _field.SamplePoint(point);
         if (major)
             return tensor.GetMajor();
         return tensor.GetMinor();
@@ -21,40 +21,40 @@ public abstract class FieldIntegrator
 
     public bool OnLand(Vector2 point)
     {
-        return this.field.OnLand(point);
+        return _field.OnLand(point);
     }
 }
 
 public class EulerIntegrator : FieldIntegrator
 {
-    private StreamlineParams parameters;
+    private readonly StreamlineParams _parameters;
 
     public EulerIntegrator(TensorField field, StreamlineParams parameters) : base(field)
     {
-        this.parameters = parameters;
+        _parameters = parameters;
     }
 
     public override Vector2 Integrate(Vector2 point, bool major)
     {
-        return this.SampleFieldVector(point, major) * parameters.Dstep;
+        return SampleFieldVector(point, major) * _parameters.Dstep;
     }
 }
 
-public class RK4Integrator : FieldIntegrator
+public class Rk4Integrator : FieldIntegrator
 {
-    private StreamlineParams parameters;
+    private readonly StreamlineParams _parameters;
 
-    public RK4Integrator(TensorField field, StreamlineParams parameters) : base(field)
+    public Rk4Integrator(TensorField field, StreamlineParams parameters) : base(field)
     {
-        this.parameters = parameters;
+        _parameters = parameters;
     }
 
     public override Vector2 Integrate(Vector2 point, bool major)
     {
-        float dstep = parameters.Dstep;
-        Vector2 k1 = this.SampleFieldVector(point, major);
-        Vector2 k23 = this.SampleFieldVector(point + new Vector2(dstep / 2, dstep / 2), major);
-        Vector2 k4 = this.SampleFieldVector(point + new Vector2(dstep, dstep), major);
+        float dstep = _parameters.Dstep;
+        Vector2 k1 = SampleFieldVector(point, major);
+        Vector2 k23 = SampleFieldVector(point + new Vector2(dstep / 2, dstep / 2), major);
+        Vector2 k4 = SampleFieldVector(point + new Vector2(dstep, dstep), major);
 
         return (k1 + 4 * k23 + k4) * (dstep / 6);
     }

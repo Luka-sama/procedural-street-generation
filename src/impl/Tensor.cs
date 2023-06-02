@@ -3,21 +3,21 @@ using System;
 
 public class Tensor
 {
-    private bool oldTheta;
+    private bool _oldTheta;
     private double _theta;
-    private double r;
-    private double[] matrix;
+    private double _r;
+    private readonly double[] _matrix;
 
     public static Tensor Zero => new Tensor(0, new double[] { 0, 0 });
 
-    public double Theta
+    private double Theta
     {
         get
         {
-            if (oldTheta)
+            if (_oldTheta)
             {
-                this._theta = this.CalculateTheta();
-                this.oldTheta = false;
+                _theta = CalculateTheta();
+                _oldTheta = false;
             }
 
             return _theta;
@@ -29,15 +29,15 @@ public class Tensor
         // Represent the matrix as a 2 element list
         // [ 0, 1
         //   1, -0 ]
-        this.r = r;
-        this.matrix = matrix;
-        this.oldTheta = false;
-        this._theta = this.CalculateTheta();
+        _r = r;
+        _matrix = matrix;
+        _oldTheta = false;
+        _theta = CalculateTheta();
     }
 
     public static Tensor FromAngle(double angle)
     {
-        return new Tensor(1, new double[] { Math.Cos(angle * 4), Math.Sin(angle * 4) });
+        return new Tensor(1, new[] { Math.Cos(angle * 4), Math.Sin(angle * 4) });
     }
 
     public static Tensor FromVector(Vector2 vector)
@@ -46,34 +46,34 @@ public class Tensor
         double t2 = 2 * vector.X * vector.Y;
         double t3 = Math.Pow(t1, 2) - Math.Pow(t2, 2);
         double t4 = 2 * t1 * t2;
-        return new Tensor(1, new double[] { t3, t4 });
+        return new Tensor(1, new[] { t3, t4 });
     }
 
     public Tensor Add(Tensor tensor, bool smooth)
     {
-        for (int i = 0; i < this.matrix.Length; i++)
+        for (int i = 0; i < _matrix.Length; i++)
         {
-            this.matrix[i] = this.matrix[i] * r + tensor.matrix[i] * tensor.r;
+            _matrix[i] = _matrix[i] * _r + tensor._matrix[i] * tensor._r;
         }
 
         if (smooth)
         {
-            this.r = Math.Sqrt(Math.Pow(this.matrix[0], 2) + Math.Pow(this.matrix[1], 2));
-            this.matrix[0] /= this.r;
-            this.matrix[1] /= this.r;
+            _r = Math.Sqrt(Math.Pow(_matrix[0], 2) + Math.Pow(_matrix[1], 2));
+            _matrix[0] /= _r;
+            _matrix[1] /= _r;
         } else
         {
-            this.r = 2;
+            _r = 2;
         }
 
-        this.oldTheta = true;
+        _oldTheta = true;
         return this;
     }
 
     public Tensor Scale(double s)
     {
-        this.r *= s;
-        this.oldTheta = true;
+        _r *= s;
+        _oldTheta = true;
         return this;
     }
 
@@ -85,7 +85,7 @@ public class Tensor
             return this;
         }
 
-        double newTheta = this.Theta + theta;
+        double newTheta = Theta + theta;
         if (newTheta < Math.PI)
         {
             newTheta += Math.PI;
@@ -96,8 +96,8 @@ public class Tensor
             newTheta -= Math.PI;
         }
 
-        matrix[0] = Math.Cos(2 * newTheta) * r;
-        matrix[1] = Math.Sin(2 * newTheta) * r;
+        _matrix[0] = Math.Cos(2 * newTheta) * _r;
+        _matrix[1] = Math.Sin(2 * newTheta) * _r;
         _theta = newTheta;
         return this;
     }
@@ -105,7 +105,7 @@ public class Tensor
     public Vector2 GetMajor()
     {
         // Degenerate case
-        if (r == 0)
+        if (_r == 0)
         {
             return Vector2.Zero;
         }
@@ -116,7 +116,7 @@ public class Tensor
     public Vector2 GetMinor()
     {
         // Degenerate case
-        if (r == 0)
+        if (_r == 0)
         {
             return Vector2.Zero;
         }
@@ -127,11 +127,11 @@ public class Tensor
 
     private double CalculateTheta()
     {
-        if (r == 0)
+        if (_r == 0)
         {
             return 0;
         }
 
-        return Math.Atan2(this.matrix[1] / this.r, this.matrix[0] / this.r) / 2;
+        return Math.Atan2(_matrix[1] / _r, _matrix[0] / _r) / 2;
     }
 }

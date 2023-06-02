@@ -1,8 +1,7 @@
 ﻿using Godot;
-using System;
 using System.Collections.Generic;
 
-public class PolygonUtil
+public static class PolygonUtil
 {
     public static bool InsidePolygon(Vector2 point, List<Vector2> polygon)
     {

@@ -4,97 +4,97 @@ using Godot;
 
 public partial class Main : Node2D
 {
-    private const float TENSOR_LINE_DIAMETER = 20;
-    private Vector2 origin = Vector2.Zero;
-    private Vector2 worldDimensions = new Vector2(500, 500);
-    private TensorField tensorField;
-    private StreamlineGenerator streamlines;
-    private bool end = false;
+    private const float TensorLineDiameter = 20;
+    private Vector2 _origin = Vector2.Zero;
+    private Vector2 _worldDimensions = new Vector2(1920, 1080);
+    private TensorField _tensorField;
+    private StreamlineGenerator _streamlines;
+    private bool _end;
 
     public override void _Ready()
     {
-        this.GenerateTensorField();
-        this.StartCreatingStreamlines();
+        GenerateTensorField();
+        StartCreatingStreamlines();
     }
 
     public override void _Process(double delta)
     {
-        if (end) return;
+        if (_end) return;
         
         for (int i = 0; i < 5; i++) {
-            if (!this.streamlines.Update())
+            if (!_streamlines.Update())
             {
-                end = true;
+                _end = true;
                 GD.Print("End of generation");
             }
         }
-        this.QueueRedraw();
+        QueueRedraw();
     }
 
     public override void _Draw()
     {
-        //this.DrawTensorField();
-        this.DrawRoads();
+        //DrawTensorField();
+        DrawRoads();
     }
 
     void GenerateTensorField()
     {
         var noiseParams = new NoiseParams
         {
-            globalNoise = false,
-            noiseAngleGlobal = 0,
-            noiseAnglePark = 0,
-            noiseSizeGlobal = 0,
-            noiseSizePark = 0
+            GlobalNoise = false,
+            NoiseAngleGlobal = 0,
+            NoiseAnglePark = 0,
+            NoiseSizeGlobal = 0,
+            NoiseSizePark = 0
         };
 
-        this.tensorField = new(noiseParams);
-        this.tensorField.AddGrid(new Vector2(264, 134), 376, 49, 14);
-        this.tensorField.AddRadial(new Vector2(426, 246), 286, 22);
+        _tensorField = new(noiseParams);
+        _tensorField.AddGrid(new Vector2(264, 134), 376, 49, 14);
+        _tensorField.AddRadial(new Vector2(426, 246), 286, 22);
     }
 
-    public void StartCreatingStreamlines()
+    private void StartCreatingStreamlines()
     {
         StreamlineParams parameters = new StreamlineParams
         {
-            Dsep = 400,
-            Dtest = 200,
+            Dsep = 100,
+            Dtest = 30,
             Dstep = 1,
-            DLookahead = 500,
+            DLookahead = 200,
             DCircleJoin = 5,
             JoinAngle = 0.1f, // approx 30deg
-            PathIterations = 10,
+            PathIterations = 2304,
             SeedTries = 300,
             SimplifyTolerance = 0.5f,
             CollideEarly = 0,
         };
-        var integrator = new RK4Integrator(this.tensorField, parameters);
-        this.streamlines = new StreamlineGenerator(integrator, this.origin, this.worldDimensions, parameters);
-        this.streamlines.StartCreatingStreamlines();
+        var integrator = new Rk4Integrator(_tensorField, parameters);
+        _streamlines = new StreamlineGenerator(integrator, _origin, _worldDimensions, parameters);
+        _streamlines.StartCreatingStreamlines();
     }
 
-    public void DrawRoads()
+    private void DrawRoads()
     {
-        var roads = streamlines.allStreamlinesSimple;
-        Color color1 = Color.Color8(255, 255, 255, 255);
-        Color color2 = Color.Color8(0, 0, 0, 255);
+        var roads = _streamlines.AllStreamlinesSimple;
+        Color color1 = Color.Color8(255, 255, 255);
+        Color color2 = Color.Color8(0, 0, 0);
         foreach (var road in roads)
         {
-            this.DrawPolyline(road.ToArray(), color2, 5);
-            this.DrawPolyline(road.ToArray(), color1, 4);
+            DrawPolyline(road.ToArray(), color2, 5);
+            DrawPolyline(road.ToArray(), color1, 4);
         }
     }
 
-    public void DrawTensorField()
+    private void DrawTensorField()
     {
-        Color color = Color.Color8(255, 0, 0, 255);
+        Color color = Color.Color8(255, 0, 0);
         
-        List<Vector2> tensorPoints = this.GetCrossLocations();
+        List<Vector2> tensorPoints = GetCrossLocations();
         foreach (var p in tensorPoints)
         {
-            var t = this.tensorField.SamplePoint(p);
-            this.DrawPolyline(this.GetTensorLine(p, t.GetMajor()), color, 3);
-            this.DrawPolyline(this.GetTensorLine(p, t.GetMinor()), color, 3);
+            var t = _tensorField.SamplePoint(p);
+            DrawPolyline(GetTensorLine(p, t.GetMajor()), color, 3);
+            DrawPolyline(GetTensorLine(p, t.GetMinor()), color, 3);
         }
     }
 
@@ -107,11 +107,11 @@ public partial class Main : Node2D
         // Gets grid of points for vector field vis in world space
         
         float zoom = 1;
-        float diameter = TENSOR_LINE_DIAMETER / zoom;
-        int nHor = (int)Math.Ceiling(this.worldDimensions.X / diameter) + 1; // Prevent pop-in
-        int nVer = (int)Math.Ceiling(this.worldDimensions.Y / diameter) + 1;
-        float originX = diameter * (float)Math.Floor(this.origin.X / diameter);
-        float originY = diameter * (float)Math.Floor(this.origin.Y / diameter);
+        float diameter = TensorLineDiameter / zoom;
+        int nHor = (int)Math.Ceiling(_worldDimensions.X / diameter) + 1; // Prevent pop-in
+        int nVer = (int)Math.Ceiling(_worldDimensions.Y / diameter) + 1;
+        float originX = diameter * (float)Math.Floor(_origin.X / diameter);
+        float originY = diameter * (float)Math.Floor(_origin.Y / diameter);
 
         List<Vector2> outList = new List<Vector2>();
         for (int x = 0; x <= nHor; x++)
@@ -127,10 +127,10 @@ public partial class Main : Node2D
     
     private Vector2[] GetTensorLine(Vector2 point, Vector2 tensorV)
     {
-        Vector2 transformedPoint = point; //this.domainController.worldToScreen(point);
-        Vector2 diff = tensorV * (TENSOR_LINE_DIAMETER / 2);  // Assumes normalised
+        Vector2 transformedPoint = point; //domainController.worldToScreen(point);
+        Vector2 diff = tensorV * (TensorLineDiameter / 2);  // Assumes normalised
         Vector2 start = transformedPoint - diff;
         Vector2 end = transformedPoint + diff;
-        return new Vector2[] {start, end};
+        return new[] {start, end};
     }
 }

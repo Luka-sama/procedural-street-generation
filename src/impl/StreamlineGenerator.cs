@@ -1,7 +1,6 @@
 ﻿using Godot;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 public struct StreamlineIntegration
 {
@@ -29,34 +28,34 @@ public struct StreamlineParams
 
 public class StreamlineGenerator
 {
-    protected readonly bool SEED_AT_ENDPOINTS = false;
-    protected readonly int NEAR_EDGE = 3; // Sample near edge
+    private readonly bool _seedAtEndpoints = false;
+    //private readonly int _nearEdge = 3; // Sample near edge
 
-    protected GridStorage majorGrid;
-    protected GridStorage minorGrid;
-    protected StreamlineParams paramsSq;
+    private GridStorage _majorGrid;
+    private GridStorage _minorGrid;
+    private StreamlineParams _paramsSq;
 
     // How many samples to skip when checking streamline collision with itself
-    protected int nStreamlineStep;
+    private readonly int _nStreamlineStep;
     // How many samples to ignore backwards when checking streamline collision with itself
-    protected int nStreamlineLookBack;
-    protected double dcollideselfSq;
+    private readonly int _nStreamlineLookBack;
+    private readonly double _dcollideselfSq;
 
-    protected List<Vector2> candidateSeedsMajor = new();
-    protected List<Vector2> candidateSeedsMinor = new();
+    private readonly List<Vector2> _candidateSeedsMajor = new();
+    private readonly List<Vector2> _candidateSeedsMinor = new();
 
-    protected bool streamlinesDone = true;
-    protected bool lastStreamlineMajor = true;
-    
-    protected FieldIntegrator integrator;
-    protected Vector2 origin;
-    protected Vector2 worldDimensions;
-    protected StreamlineParams parameters;
+    private bool _streamlinesDone = true;
+    private bool _lastStreamlineMajor = true;
 
-    public List<List<Vector2>> allStreamlines = new();
-    public List<List<Vector2>> streamlinesMajor = new();
-    public List<List<Vector2>> streamlinesMinor = new();
-    public List<List<Vector2>> allStreamlinesSimple = new(); // Reduced vertex count
+    private readonly FieldIntegrator _integrator;
+    private readonly Vector2 _origin;
+    private readonly Vector2 _worldDimensions;
+    private readonly StreamlineParams _parameters;
+
+    public readonly List<List<Vector2>> AllStreamlines = new();
+    public readonly List<List<Vector2>> StreamlinesMajor = new();
+    public readonly List<List<Vector2>> StreamlinesMinor = new();
+    public readonly List<List<Vector2>> AllStreamlinesSimple = new(); // Reduced vertex count
 
     /**
      * Uses world-space coordinates
@@ -66,75 +65,75 @@ public class StreamlineGenerator
             GD.PushError("STREAMLINE SAMPLE DISTANCE BIGGER THAN DSEP");
         }
         
-        this.integrator = integrator;
-        this.origin = origin;
-        this.worldDimensions = worldDimensions;
-        this.parameters = parameters;
+        _integrator = integrator;
+        _origin = origin;
+        _worldDimensions = worldDimensions;
+        _parameters = parameters;
 
         // Enforce test < sep
         parameters.Dtest = Math.Min(parameters.Dtest, parameters.Dsep);
         
         // Needs to be less than circlejoin
-        this.dcollideselfSq = Math.Pow(parameters.DCircleJoin / 2, 2);
-        this.nStreamlineStep = (int)(parameters.DCircleJoin / parameters.Dstep);
-        this.nStreamlineLookBack = 2 * this.nStreamlineStep;
+        _dcollideselfSq = Math.Pow(parameters.DCircleJoin / 2, 2);
+        _nStreamlineStep = (int)(parameters.DCircleJoin / parameters.Dstep);
+        _nStreamlineLookBack = 2 * _nStreamlineStep;
 
-        this.majorGrid = new GridStorage(worldDimensions, origin, parameters.Dsep);
-        this.minorGrid = new GridStorage(worldDimensions, origin, parameters.Dsep);
+        _majorGrid = new GridStorage(worldDimensions, origin, parameters.Dsep);
+        _minorGrid = new GridStorage(worldDimensions, origin, parameters.Dsep);
 
-        this.SetParamsSq(this.parameters);
+        SetParamsSq();
     }
     
-    void clearStreamlines() {
-        this.allStreamlinesSimple.Clear();
-        this.streamlinesMajor.Clear();
-        this.streamlinesMinor.Clear();
-        this.allStreamlines.Clear();
+    public void ClearStreamlines() {
+        AllStreamlinesSimple.Clear();
+        StreamlinesMajor.Clear();
+        StreamlinesMinor.Clear();
+        AllStreamlines.Clear();
     }
     
     /**
      * Edits streamlines
      */
-    public void JoinDanglingStreamlines()
+    private void JoinDanglingStreamlines()
     {
         // TODO do in update method
-        foreach (bool major in new bool[] { true, false })
+        foreach (bool major in new[] { true, false })
         {
-            foreach (List<Vector2> streamline in this.Streamlines(major))
+            foreach (List<Vector2> streamline in Streamlines(major))
             {
                 // Ignore circles
-                if (streamline[0].Equals(streamline[streamline.Count - 1]))
+                if (streamline[0].Equals(streamline[^1]))
                 {
                     continue;
                 }
 
-                Vector2? newStart = this.GetBestNextPoint(streamline[0], streamline[4], streamline);
+                Vector2? newStart = GetBestNextPoint(streamline[0], streamline[4]);
                 if (newStart != null)
                 {
-                    foreach (Vector2 p in this.PointsBetween(streamline[0], newStart.Value, this.parameters.Dstep))
+                    foreach (Vector2 p in PointsBetween(streamline[0], newStart.Value, _parameters.Dstep))
                     {
-                        streamline.Prepend(p);
-                        this.Grid(major).AddSample(p);
+                        streamline.Insert(0, p);
+                        Grid(major).AddSample(p);
                     }
                 }
 
-                Vector2? newEnd = this.GetBestNextPoint(streamline[streamline.Count - 1], streamline[streamline.Count - 4], streamline);
+                Vector2? newEnd = GetBestNextPoint(streamline[^1], streamline[^4]);
                 if (newEnd != null)
                 {
-                    foreach (Vector2 p in this.PointsBetween(streamline[streamline.Count - 1], newEnd.Value, parameters.Dstep))
+                    foreach (Vector2 p in PointsBetween(streamline[^1], newEnd.Value, _parameters.Dstep))
                     {
                         streamline.Add(p);
-                        this.Grid(major).AddSample(p);
+                        Grid(major).AddSample(p);
                     }
                 }
             }
         }
 
         // Reset simplified streamlines
-        this.allStreamlinesSimple.Clear();
-        foreach (List<Vector2> s in this.allStreamlines)
+        AllStreamlinesSimple.Clear();
+        foreach (List<Vector2> s in AllStreamlines)
         {
-            this.allStreamlinesSimple.Add(this.SimplifyStreamline(s));
+            AllStreamlinesSimple.Add(SimplifyStreamline(s));
         }
     }
     
@@ -147,7 +146,7 @@ public class StreamlineGenerator
         double d = v1.DistanceTo(v2);
         int nPoints = (int)Math.Floor(d / dstep);
         if (nPoints == 0)
-            return new();
+            return new List<Vector2>();
 
         Vector2 stepVector = v2 - v1;
 
@@ -155,7 +154,7 @@ public class StreamlineGenerator
         for (int i = 1; i <= nPoints; i++)
         {
             Vector2 next = v1 + stepVector * (i / (float)nPoints);
-            if (this.integrator.Integrate(next, true).LengthSquared() > 0.001) // Test for degenerate point
+            if (_integrator.Integrate(next, true).LengthSquared() > 0.001) // Test for degenerate point
             {
                 outList.Add(next);
             }
@@ -171,10 +170,10 @@ public class StreamlineGenerator
      * Gets next best point to join streamline
      * returns null if there are no good candidates
      */
-    private Vector2? GetBestNextPoint(Vector2 point, Vector2 previousPoint, List<Vector2> streamline)
+    private Vector2? GetBestNextPoint(Vector2 point, Vector2 previousPoint)
     {
-        List<Vector2> nearbyPoints = this.majorGrid.GetNearbyPoints(point, this.parameters.DLookahead);
-        nearbyPoints.AddRange(this.minorGrid.GetNearbyPoints(point, this.parameters.DLookahead));
+        List<Vector2> nearbyPoints = _majorGrid.GetNearbyPoints(point, _parameters.DLookahead);
+        nearbyPoints.AddRange(_minorGrid.GetNearbyPoints(point, _parameters.DLookahead));
         Vector2 direction = point - previousPoint;
 
         Vector2? closestSample = null;
@@ -193,7 +192,7 @@ public class StreamlineGenerator
 
                 // Acute angle between vectors (agnostic of CW, ACW)
                 double distanceToSample = point.DistanceSquaredTo(sample);
-                if (distanceToSample < 2 * this.paramsSq.Dstep)
+                if (distanceToSample < 2 * _paramsSq.Dstep)
                 {
                     closestSample = sample;
                     break;
@@ -202,7 +201,7 @@ public class StreamlineGenerator
                 double angleBetween = Math.Abs(direction.AngleTo(differenceVector));
 
                 // Filter by angle
-                if (angleBetween < this.parameters.JoinAngle && distanceToSample < closestDistance)
+                if (angleBetween < _parameters.JoinAngle && distanceToSample < closestDistance)
                 {
                     closestDistance = distanceToSample;
                     closestSample = sample;
@@ -216,7 +215,7 @@ public class StreamlineGenerator
         // prevent ends getting pulled away from simplified lines
         if (closestSample != null)
         {
-            closestSample += 4 * this.parameters.SimplifyTolerance * direction.Normalized();
+            closestSample += 4 * _parameters.SimplifyTolerance * direction.Normalized();
         }
 
         return closestSample;
@@ -227,14 +226,14 @@ public class StreamlineGenerator
      */
     public void AddExistingStreamlines(StreamlineGenerator s)
     {
-        this.majorGrid.AddAll(s.majorGrid);
-        this.minorGrid.AddAll(s.minorGrid);
+        _majorGrid.AddAll(s._majorGrid);
+        _minorGrid.AddAll(s._minorGrid);
     }
 
     public void SetGrid(StreamlineGenerator s)
     {
-        this.majorGrid = s.majorGrid;
-        this.minorGrid = s.minorGrid;
+        _majorGrid = s._majorGrid;
+        _minorGrid = s._minorGrid;
     }
     
     /**
@@ -242,13 +241,13 @@ public class StreamlineGenerator
      */
     public bool Update()
     {
-        if (!this.streamlinesDone)
+        if (!_streamlinesDone)
         {
-            this.lastStreamlineMajor = !this.lastStreamlineMajor;
-            if (!this.CreateStreamline(this.lastStreamlineMajor))
+            _lastStreamlineMajor = !_lastStreamlineMajor;
+            if (!CreateStreamline(_lastStreamlineMajor))
             {
-                this.streamlinesDone = true;
-                this.JoinDanglingStreamlines();
+                _streamlinesDone = true;
+                JoinDanglingStreamlines();
             }
             return true;
         }
@@ -258,7 +257,7 @@ public class StreamlineGenerator
 
     public void StartCreatingStreamlines()
     {
-        this.streamlinesDone = false;
+        _streamlinesDone = false;
     }
 
     /**
@@ -266,13 +265,13 @@ public class StreamlineGenerator
      */
     public void CreateAllStreamlines()
     {
-        this.StartCreatingStreamlines();
+        StartCreatingStreamlines();
         bool major = true;
-        while (this.CreateStreamline(major))
+        while (CreateStreamline(major))
         {
             major = !major;
         }
-        this.JoinDanglingStreamlines();
+        JoinDanglingStreamlines();
     }
     
     // Square distance from a point to a segment
@@ -305,14 +304,14 @@ public class StreamlineGenerator
         return dx * dx + dy * dy;
     }
     
-    void SimplifyDPStep(List<Vector2> points, int first, int last, float sqTolerance, List<Vector2> simplified)
+    void SimplifyDpStep(List<Vector2> points, int first, int last, float sqTolerance, List<Vector2> simplified)
     {
         float maxSqDist = 0;
         int index = 0;
         
         for (int i = first + 1; i < last; i++)
         {
-            float sqDist = this.GetSqSegDist(points[i], points[first], points[last]);
+            float sqDist = GetSqSegDist(points[i], points[first], points[last]);
 
             if (sqDist > maxSqDist)
             {
@@ -325,44 +324,39 @@ public class StreamlineGenerator
         {
             if (index - first > 1)
             {
-                SimplifyDPStep(points, first, index, sqTolerance, simplified);
+                SimplifyDpStep(points, first, index, sqTolerance, simplified);
             }
             simplified.Add(points[index]);
             if (last - index > 1)
             {
-                SimplifyDPStep(points, index, last, sqTolerance, simplified);
+                SimplifyDpStep(points, index, last, sqTolerance, simplified);
             }
         }
     }
     
     // simplification using Ramer-Douglas-Peucker algorithm
-    List<Vector2> SimplifyDouglasPeucker(List<Vector2> points, float sqTolerance)
+    private List<Vector2> SimplifyDouglasPeucker(List<Vector2> points, float sqTolerance)
     {
         int last = points.Count - 1;
         
         List<Vector2> simplified = new List<Vector2> { points[0] };
-        this.SimplifyDPStep(points, 0, last, sqTolerance, simplified);
+        SimplifyDpStep(points, 0, last, sqTolerance, simplified);
         simplified.Add(points[last]);
 
         return simplified;
     }
-    
-    List<Vector2> Simplify(List<Vector2> points, float tolerance)
+
+    private List<Vector2> Simplify(List<Vector2> points, float tolerance)
     {
         if (points.Count <= 2) return points;
         
         var sqTolerance = tolerance * tolerance;
-        return this.SimplifyDouglasPeucker(points, sqTolerance);
+        return SimplifyDouglasPeucker(points, sqTolerance);
     }
-    
-    protected List<Vector2> SimplifyStreamline(List<Vector2> streamline)
+
+    private List<Vector2> SimplifyStreamline(List<Vector2> streamline)
     {
-        List<Vector2> simplified = new();
-        foreach (Vector2 point in this.Simplify(streamline, this.parameters.SimplifyTolerance))
-        {
-            simplified.Add(point);
-        }
-        return simplified;
+        return Simplify(streamline, _parameters.SimplifyTolerance);
     }
 
     /**
@@ -370,87 +364,91 @@ public class StreamlineGenerator
      * Pushes new candidate seeds to queue
      * @return {Vector[]} returns false if seed isn't found within params.seedTries
      */
-    protected bool CreateStreamline(bool major)
+    private bool CreateStreamline(bool major)
     {
-        Vector2? seed = this.GetSeed(major);
+        Vector2? seed = GetSeed(major);
         if (seed == null)
         {
             return false;
         }
-        List<Vector2> streamline = this.IntegrateStreamline(seed.Value, major);
-        if (this.ValidStreamline(streamline))
+        List<Vector2> streamline = IntegrateStreamline(seed.Value, major);
+        if (ValidStreamline(streamline))
         {
-            this.Grid(major).AddPolyline(streamline);
-            this.Streamlines(major).Add(streamline);
-            allStreamlines.Add(streamline);
+            Grid(major).AddPolyline(streamline);
+            Streamlines(major).Add(streamline);
+            AllStreamlines.Add(streamline);
 
-            allStreamlinesSimple.Add(SimplifyStreamline(streamline));
+            AllStreamlinesSimple.Add(SimplifyStreamline(streamline));
 
             // Add candidate seeds
-            if (!streamline[0].Equals(streamline[streamline.Count - 1]))
+            if (!streamline[0].Equals(streamline[^1]))
             {
-                this.CandidateSeeds(!major).Add(streamline[0]);
-                this.CandidateSeeds(!major).Add(streamline[streamline.Count - 1]);
+                CandidateSeeds(!major).Add(streamline[0]);
+                CandidateSeeds(!major).Add(streamline[^1]);
             }
         }
         
         return true;
     }
-    
-    protected bool ValidStreamline(List<Vector2> s)
+
+    private bool ValidStreamline(List<Vector2> s)
     {
         return s.Count > 5;
     }
 
-    protected void SetParamsSq(StreamlineParams thisParameters) // hack to copy the value
+    private void SetParamsSq()
     {
-        this.paramsSq = thisParameters;
-        foreach (var property in thisParameters.GetType().GetProperties())
+        _paramsSq = new StreamlineParams
         {
-            if (property.PropertyType == typeof(float))
-            {
-                float value = (float)property.GetValue(thisParameters);
-                property.SetValue(paramsSq, value * value);
-            }
-        }
+            Dsep = (float)Math.Pow(_parameters.Dsep, 2),
+            Dtest = (float)Math.Pow(_parameters.Dtest, 2),
+            Dstep = (float)Math.Pow(_parameters.Dstep, 2),
+            DCircleJoin = (float)Math.Pow(_parameters.DCircleJoin, 2),
+            DLookahead = (float)Math.Pow(_parameters.DLookahead, 2),
+            JoinAngle = (float)Math.Pow(_parameters.JoinAngle, 2),
+            PathIterations = (int)Math.Pow(_parameters.PathIterations, 2),
+            SeedTries = (int)Math.Pow(_parameters.SeedTries, 2),
+            SimplifyTolerance = (float)Math.Pow(_parameters.SimplifyTolerance, 2),
+            CollideEarly = (float)Math.Pow(_parameters.CollideEarly, 2)
+        };
     }
 
-    protected Vector2 SamplePoint()
+    private Vector2 SamplePoint()
     {
         // TODO better seeding scheme
         return new Vector2(
-            (float)GD.RandRange(0, this.worldDimensions.X - 1),
-            (float)GD.RandRange(0, this.worldDimensions.Y - 1)
-        ) + this.origin;
+            (float)GD.RandRange(0, _worldDimensions.X - 1),
+            (float)GD.RandRange(0, _worldDimensions.Y - 1)
+        ) + _origin;
     }
     
     /**
-     * Tries this.candidateSeeds first, then samples using this.samplePoint
+     * Tries candidateSeeds first, then samples using samplePoint
      */
-    protected Vector2? GetSeed(bool major)
+    private Vector2? GetSeed(bool major)
     {
         Vector2 seed;
         
         // Candidate seeds first
-        if (this.SEED_AT_ENDPOINTS && this.CandidateSeeds(major).Count > 0)
+        if (_seedAtEndpoints && CandidateSeeds(major).Count > 0)
         {
-            while (this.CandidateSeeds(major).Count > 0)
+            while (CandidateSeeds(major).Count > 0)
             {
-                var candidateSeeds = this.CandidateSeeds(major);
-                seed = candidateSeeds[candidateSeeds.Count - 1];
+                var candidateSeeds = CandidateSeeds(major);
+                seed = candidateSeeds[^1];
                 candidateSeeds.RemoveAt(candidateSeeds.Count - 1);
-                if (this.IsValidSample(major, seed, this.paramsSq.Dsep))
+                if (IsValidSample(major, seed, _paramsSq.Dsep))
                 {
                     return seed;
                 }
             }
         }
 
-        seed = this.SamplePoint();
+        seed = SamplePoint();
         int i = 0;
-        while (!this.IsValidSample(major, seed, this.paramsSq.Dsep))
+        while (!IsValidSample(major, seed, _paramsSq.Dsep))
         {
-            if (i >= this.parameters.SeedTries)
+            if (i >= _parameters.SeedTries)
             {
                 return null;
             }
@@ -460,39 +458,39 @@ public class StreamlineGenerator
         
         return seed;
     }
-    
-    protected bool IsValidSample(bool major, Vector2 point, double dSq, bool bothGrids = false)
+
+    private bool IsValidSample(bool major, Vector2 point, double dSq, bool bothGrids = false)
     {
         // dSq *= point.DistanceSquaredTo(Vector2.Zero);
-        bool gridValid = this.Grid(major).IsValidSample(point, dSq);
+        bool gridValid = Grid(major).IsValidSample(point, dSq);
         if (bothGrids)
         {
-            gridValid = gridValid && this.Grid(!major).IsValidSample(point, dSq);
+            gridValid = gridValid && Grid(!major).IsValidSample(point, dSq);
         }
-        return this.integrator.OnLand(point) && gridValid;
-    }
-    
-    protected List<Vector2> CandidateSeeds(bool major)
-    {
-        return major ? this.candidateSeedsMajor : this.candidateSeedsMinor;
-    }
-    
-    protected List<List<Vector2>> Streamlines(bool major)
-    {
-        return major ? this.streamlinesMajor : this.streamlinesMinor;
+        return _integrator.OnLand(point) && gridValid;
     }
 
-    protected GridStorage Grid(bool major)
+    private List<Vector2> CandidateSeeds(bool major)
     {
-        return major ? this.majorGrid : this.minorGrid;
+        return major ? _candidateSeedsMajor : _candidateSeedsMinor;
     }
-    
-    protected bool PointInBounds(Vector2 v)
+
+    private List<List<Vector2>> Streamlines(bool major)
     {
-        return (v.X >= this.origin.X
-                && v.Y >= this.origin.Y
-                && v.X < this.worldDimensions.X + this.origin.X
-                && v.Y < this.worldDimensions.Y + this.origin.Y
+        return major ? StreamlinesMajor : StreamlinesMinor;
+    }
+
+    private GridStorage Grid(bool major)
+    {
+        return major ? _majorGrid : _minorGrid;
+    }
+
+    private bool PointInBounds(Vector2 v)
+    {
+        return (v.X >= _origin.X
+                && v.Y >= _origin.Y
+                && v.X < _worldDimensions.X + _origin.X
+                && v.Y < _worldDimensions.Y + _origin.Y
             );
     }
     
@@ -506,20 +504,20 @@ public class StreamlineGenerator
     protected bool DoesStreamlineCollideSelf(Vector2 testSample, List<Vector2> streamlineForwards, List<Vector2> streamlineBackwards)
     {
         // Streamline long enough
-        if (streamlineForwards.Count > this.nStreamlineLookBack)
+        if (streamlineForwards.Count > _nStreamlineLookBack)
         {
-            for (int i = 0; i < streamlineForwards.Count - this.nStreamlineLookBack; i += this.nStreamlineStep)
+            for (int i = 0; i < streamlineForwards.Count - _nStreamlineLookBack; i += _nStreamlineStep)
             {
-                if (testSample.DistanceSquaredTo(streamlineForwards[i]) < this.dcollideselfSq)
+                if (testSample.DistanceSquaredTo(streamlineForwards[i]) < _dcollideselfSq)
                 {
                     return true;
                 }
             }
 
             // Backwards check
-            for (int i = 0; i < streamlineBackwards.Count; i += this.nStreamlineStep)
+            for (int i = 0; i < streamlineBackwards.Count; i += _nStreamlineStep)
             {
-                if (testSample.DistanceSquaredTo(streamlineBackwards[i]) < this.dcollideselfSq)
+                if (testSample.DistanceSquaredTo(streamlineBackwards[i]) < _dcollideselfSq)
                 {
                     return true;
                 }
@@ -532,12 +530,12 @@ public class StreamlineGenerator
     /**
      * Tests whether streamline has turned through greater than 180 degrees
      */
-    protected bool StreamlineTurned(Vector2 seed, Vector2 originalDir, Vector2 point, Vector2 direction)
+    private bool StreamlineTurned(Vector2 seed, Vector2 originalDir, Vector2 point, Vector2 direction)
     {
         if (originalDir.Dot(direction) < 0)
         {
             // TODO optimise
-            Vector2 perpendicularVector = new Vector2(originalDir.Y, -originalDir.X);
+            Vector2 perpendicularVector = new(originalDir.Y, -originalDir.X);
             bool isLeft = (point - seed).Dot(perpendicularVector) < 0;
             bool directionUp = direction.Dot(perpendicularVector) > 0;
             return isLeft == directionUp;
@@ -550,46 +548,46 @@ public class StreamlineGenerator
      * // TODO this doesn't work well - consider something disallowing one direction (F/B) to turn more than 180 deg
      * One step of the streamline integration process
      */
-    protected void StreamlineIntegrationStep(StreamlineIntegration parameters, bool major, bool collideBoth)
+    private void StreamlineIntegrationStep(ref StreamlineIntegration currParameters, bool major, bool collideBoth)
     {
-        if (parameters.Valid)
+        if (currParameters.Valid)
         {
-            parameters.Streamline.Add(parameters.PreviousPoint);
-            Vector2 nextDirection = this.integrator.Integrate(parameters.PreviousPoint, major);
+            currParameters.Streamline.Add(currParameters.PreviousPoint);
+            Vector2 nextDirection = _integrator.Integrate(currParameters.PreviousPoint, major);
 
             // Stop at degenerate point
             if (nextDirection.LengthSquared() < 0.01)
             {
-                parameters.Valid = false;
+                currParameters.Valid = false;
                 return;
             }
 
             // Make sure we travel in the same direction
-            if (nextDirection.Dot(parameters.PreviousDirection) < 0)
+            if (nextDirection.Dot(currParameters.PreviousDirection) < 0)
             {
                 nextDirection = -nextDirection;
             }
 
-            Vector2 nextPoint = parameters.PreviousPoint + nextDirection;
+            Vector2 nextPoint = currParameters.PreviousPoint + nextDirection;
 
             // Visualize stopping points
-            // if (this.StreamlineTurned(parameters.Seed, parameters.OriginalDir, nextPoint, nextDirection)) {
+            // if (StreamlineTurned(parameters.Seed, parameters.OriginalDir, nextPoint, nextDirection)) {
             //     parameters.Valid = false;
             //     parameters.Streamline.Add(Vector2.Zero);
             // }
 
-            if (this.PointInBounds(nextPoint)
-                && this.IsValidSample(major, nextPoint, this.paramsSq.Dtest, collideBoth)
-                && !this.StreamlineTurned(parameters.Seed, parameters.OriginalDir, nextPoint, nextDirection))
+            if (PointInBounds(nextPoint)
+                && IsValidSample(major, nextPoint, _paramsSq.Dtest, collideBoth)
+                && !StreamlineTurned(currParameters.Seed, currParameters.OriginalDir, nextPoint, nextDirection))
             {
-                parameters.PreviousPoint = nextPoint;
-                parameters.PreviousDirection = nextDirection;
+                currParameters.PreviousPoint = nextPoint;
+                currParameters.PreviousDirection = nextDirection;
             }
             else
             {
                 // One more step
-                parameters.Streamline.Add(nextPoint);
-                parameters.Valid = false;
+                currParameters.Streamline.Add(nextPoint);
+                currParameters.Valid = false;
             }
         }
     }
@@ -598,16 +596,16 @@ public class StreamlineGenerator
      * By simultaneously integrating in both directions we reduce the impact of circles not joining
      * up as the error matches at the join
      */
-    protected List<Vector2> IntegrateStreamline(Vector2 seed, bool major)
+    private List<Vector2> IntegrateStreamline(Vector2 seed, bool major)
     {
         int count = 0;
         bool pointsEscaped = false; // True once two integration fronts have moved dlookahead away
 
         // Whether or not to test validity using both grid storages
         // (Collide with both major and minor)
-        bool collideEarly = GD.Randf() < this.parameters.CollideEarly;
+        bool collideEarly = GD.Randf() < _parameters.CollideEarly;
 
-        Vector2 d = this.integrator.Integrate(seed, major);
+        Vector2 d = _integrator.Integrate(seed, major);
 
         StreamlineIntegration forwardParams = new StreamlineIntegration
         {
@@ -619,7 +617,7 @@ public class StreamlineGenerator
             Valid = true
         };
 
-        forwardParams.Valid = this.PointInBounds(forwardParams.PreviousPoint);
+        forwardParams.Valid = PointInBounds(forwardParams.PreviousPoint);
 
         Vector2 negD = -d;
         StreamlineIntegration backwardParams = new StreamlineIntegration
@@ -632,22 +630,22 @@ public class StreamlineGenerator
             Valid = true
         };
 
-        backwardParams.Valid = this.PointInBounds(backwardParams.PreviousPoint);
+        backwardParams.Valid = PointInBounds(backwardParams.PreviousPoint);
 
-        while (count < this.parameters.PathIterations && (forwardParams.Valid || backwardParams.Valid))
+        while (count < _parameters.PathIterations && (forwardParams.Valid || backwardParams.Valid))
         {
-            this.StreamlineIntegrationStep(forwardParams, major, collideEarly);
-            this.StreamlineIntegrationStep(backwardParams, major, collideEarly);
+            StreamlineIntegrationStep(ref forwardParams, major, collideEarly);
+            StreamlineIntegrationStep(ref backwardParams, major, collideEarly);
 
             // Join up circles
             float sqDistanceBetweenPoints = forwardParams.PreviousPoint.DistanceSquaredTo(backwardParams.PreviousPoint);
 
-            if (!pointsEscaped && sqDistanceBetweenPoints > this.paramsSq.DCircleJoin)
+            if (!pointsEscaped && sqDistanceBetweenPoints > _paramsSq.DCircleJoin)
             {
                 pointsEscaped = true;
             }
 
-            if (pointsEscaped && sqDistanceBetweenPoints <= this.paramsSq.DCircleJoin)
+            if (pointsEscaped && sqDistanceBetweenPoints <= _paramsSq.DCircleJoin)
             {
                 forwardParams.Streamline.Add(forwardParams.PreviousPoint);
                 forwardParams.Streamline.Add(backwardParams.PreviousPoint);

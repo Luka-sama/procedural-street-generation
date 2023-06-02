@@ -8,13 +8,13 @@ using System.Collections.Generic;
  */
 public class GridStorage
 {
-    private Vector2I gridDimensions;
-    private List<Vector2>[][] grid;
-    private float dsepSq;
+    private readonly Vector2I _gridDimensions;
+    private readonly List<Vector2>[][] _grid;
+    private readonly float _dsepSq;
 
-    private Vector2 worldDimensions;
-    private Vector2 origin;
-    private float dsep;
+    private readonly Vector2 _worldDimensions;
+    private readonly Vector2 _origin;
+    private readonly float _dsep;
 
     /**
      * worldDimensions assumes origin of 0,0
@@ -22,19 +22,19 @@ public class GridStorage
      */
     public GridStorage(Vector2 worldDimensions, Vector2 origin, float dsep)
     {
-        this.worldDimensions = worldDimensions;
-        this.origin = origin;
-        this.dsep = dsep;
+        _worldDimensions = worldDimensions;
+        _origin = origin;
+        _dsep = dsep;
 
-        this.dsepSq = dsep * dsep;
-        this.gridDimensions = new Vector2I((int)Math.Ceiling(worldDimensions.X / dsep), (int)Math.Ceiling(worldDimensions.Y / dsep));
-        this.grid = new List<Vector2>[this.gridDimensions.X][];
-        for (int x = 0; x < this.gridDimensions.X; x++)
+        _dsepSq = dsep * dsep;
+        _gridDimensions = new Vector2I((int)Math.Ceiling(worldDimensions.X / dsep), (int)Math.Ceiling(worldDimensions.Y / dsep));
+        _grid = new List<Vector2>[_gridDimensions.X][];
+        for (int x = 0; x < _gridDimensions.X; x++)
         {
-            this.grid[x] = new List<Vector2>[this.gridDimensions.Y];
-            for (int y = 0; y < this.gridDimensions.Y; y++)
+            _grid[x] = new List<Vector2>[_gridDimensions.Y];
+            for (int y = 0; y < _gridDimensions.Y; y++)
             {
-                this.grid[x][y] = new List<Vector2>();
+                _grid[x][y] = new List<Vector2>();
             }
         }
     }
@@ -44,13 +44,13 @@ public class GridStorage
      */
     public void AddAll(GridStorage gridStorage)
     {
-        foreach (var row in gridStorage.grid)
+        foreach (var row in gridStorage._grid)
         {
             foreach (var cell in row)
             {
                 foreach (var sample in cell)
                 {
-                    this.AddSample(sample);
+                    AddSample(sample);
                 }
             }
         }
@@ -60,7 +60,7 @@ public class GridStorage
     {
         foreach (var v in line)
         {
-            this.AddSample(v);
+            AddSample(v);
         }
     }
 
@@ -70,23 +70,23 @@ public class GridStorage
      */
     public void AddSample(Vector2 v, Vector2? givenCoords = null)
     {
-        Vector2 coords = givenCoords ?? this.GetSampleCoords(v);
-        this.grid[(int)coords.X][(int)coords.Y].Add(v);
+        Vector2 coords = givenCoords ?? GetSampleCoords(v);
+        _grid[(int)coords.X][(int)coords.Y].Add(v);
     }
 
     /**
      * Tests whether v is at least d away from samples
      * Performance very important - this is called at every integration step
-     * @param dSq=this.dsepSq squared test distance
+     * @param dSq=dsepSq squared test distance
      * Could be dtest if we are integrating a streamline
      */
     public bool IsValidSample(Vector2 v, double? givenDSq = null)
     {
-        // Code duplication with this.getNearbyPoints but much slower when calling
-        // this.getNearbyPoints due to array creation in that method
+        // Code duplication with getNearbyPoints but much slower when calling
+        // getNearbyPoints due to array creation in that method
 
-        double dSq = givenDSq ?? this.dsepSq;
-        Vector2 coords = this.GetSampleCoords(v);
+        double dSq = givenDSq ?? _dsepSq;
+        Vector2 coords = GetSampleCoords(v);
 
         // Check samples in 9 cells in 3x3 grid
         for (int x = -1; x <= 1; x++)
@@ -94,8 +94,8 @@ public class GridStorage
             for (int y = -1; y <= 1; y++)
             {
                 Vector2 cell = coords + new Vector2(x, y);
-                if (!this.VectorOutOfBounds(cell, this.gridDimensions) &&
-                    !this.VectorFarFromVectors(v, this.grid[(int)cell.X][(int)cell.Y], dSq))
+                if (!VectorOutOfBounds(cell, _gridDimensions) &&
+                    !VectorFarFromVectors(v, _grid[(int)cell.X][(int)cell.Y], dSq))
                 {
                     return false;
                 }
@@ -110,7 +110,7 @@ public class GridStorage
      * Performance very important - this is called at every integration step
      * @param {number}   dSq     squared test distance
      */
-    public bool VectorFarFromVectors(Vector2 v, List<Vector2> vectors, double dSq)
+    private bool VectorFarFromVectors(Vector2 v, List<Vector2> vectors, double dSq)
     {
         foreach (var sample in vectors)
         {
@@ -135,17 +135,17 @@ public class GridStorage
      */
     public List<Vector2> GetNearbyPoints(Vector2 v, double distance)
     {
-        int radius = (int)Math.Ceiling((distance / this.dsep) - 0.5);
-        Vector2 coords = this.GetSampleCoords(v);
+        int radius = (int)Math.Ceiling((distance / _dsep) - 0.5);
+        Vector2 coords = GetSampleCoords(v);
         List<Vector2> outList = new();
         for (int x = -1 * radius; x <= 1 * radius; x++)
         {
             for (int y = -1 * radius; y <= 1 * radius; y++)
             {
                 Vector2 cell = coords + new Vector2(x, y);
-                if (!this.VectorOutOfBounds(cell, this.gridDimensions))
+                if (!VectorOutOfBounds(cell, _gridDimensions))
                 {
-                    foreach (var v2 in this.grid[(int)cell.X][(int)cell.Y])
+                    foreach (var v2 in _grid[(int)cell.X][(int)cell.Y])
                     {
                         outList.Add(v2);
                     }
@@ -158,13 +158,13 @@ public class GridStorage
 
     private Vector2 WorldToGrid(Vector2 v)
     {
-        return v - this.origin;
+        return v - _origin;
     }
 
-    private Vector2 GridToWorld(Vector2 v)
+    /*private Vector2 GridToWorld(Vector2 v)
     {
-        return v + this.origin;
-    }
+        return v + _origin;
+    }*/
 
     private bool VectorOutOfBounds(Vector2 gridV, Vector2 bounds)
     {
@@ -174,15 +174,15 @@ public class GridStorage
 
     private Vector2 GetSampleCoords(Vector2 worldV)
     {
-        Vector2 v = this.WorldToGrid(worldV);
-        if (this.VectorOutOfBounds(v, this.worldDimensions))
+        Vector2 v = WorldToGrid(worldV);
+        if (VectorOutOfBounds(v, _worldDimensions))
         {
             return Vector2.Zero;
         }
 
         return new Vector2(
-            (int)Math.Floor(v.X / this.dsep),
-            (int)Math.Floor(v.Y / this.dsep)
+            (int)Math.Floor(v.X / _dsep),
+            (int)Math.Floor(v.Y / _dsep)
         );
     }
 }
