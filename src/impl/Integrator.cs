@@ -40,11 +40,12 @@ public class EulerIntegrator : FieldIntegrator
     }
 }
 
-public class Rk4Integrator : FieldIntegrator
+// ReSharper disable once InconsistentNaming
+public class RK4Integrator : FieldIntegrator
 {
     private readonly StreamlineParams _parameters;
 
-    public Rk4Integrator(TensorField field, StreamlineParams parameters) : base(field)
+    public RK4Integrator(TensorField field, StreamlineParams parameters) : base(field)
     {
         _parameters = parameters;
     }

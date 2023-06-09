@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Godot;
 
-public partial class Main : Node2D
+public partial class CityScheme : Node3D
 {
     private const float TensorLineDiameter = 20;
     private Vector2 _origin = Vector2.Zero;
@@ -28,13 +28,18 @@ public partial class Main : Node2D
                 GD.Print("End of generation");
             }
         }
-        QueueRedraw();
+        //QueueRedraw();
     }
 
-    public override void _Draw()
+    /*public override void _Draw()
     {
         //DrawTensorField();
         DrawRoads();
+    }*/
+
+    public List<List<Vector2>> GetRoads()
+    {
+        return _streamlines.AllStreamlinesSimple;
     }
 
     private void GenerateTensorField()
@@ -68,7 +73,7 @@ public partial class Main : Node2D
             SimplifyTolerance = 0.5f,
             CollideEarly = 0,
         };
-        var integrator = new Rk4Integrator(_tensorField, parameters);
+        var integrator = new RK4Integrator(_tensorField, parameters);
         _streamlines = new StreamlineGenerator(integrator, _origin, _worldDimensions, parameters);
         _streamlines.StartCreatingStreamlines();
     }
@@ -80,8 +85,8 @@ public partial class Main : Node2D
         Color color2 = Color.Color8(0, 0, 0);
         foreach (var road in roads)
         {
-            DrawPolyline(road.ToArray(), color2, 5);
-            DrawPolyline(road.ToArray(), color1, 4);
+            //DrawPolyline(road.ToArray(), color2, 5);
+            //DrawPolyline(road.ToArray(), color1, 4);
         }
     }
 
@@ -93,8 +98,8 @@ public partial class Main : Node2D
         foreach (var p in tensorPoints)
         {
             var t = _tensorField.SamplePoint(p);
-            DrawPolyline(GetTensorLine(p, t.GetMajor()), color, 3);
-            DrawPolyline(GetTensorLine(p, t.GetMinor()), color, 3);
+            //DrawPolyline(GetTensorLine(p, t.GetMajor()), color, 3);
+            //DrawPolyline(GetTensorLine(p, t.GetMinor()), color, 3);
         }
     }
 
