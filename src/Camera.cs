@@ -30,12 +30,13 @@ public partial class Camera : Camera3D
 			input.X += 1;
 		}
 
+		Vector3 velocity = 15 * (float)delta * input;
+		Translate(velocity);
+
 		var transform = Transform;
 		transform.Basis = Basis.FromEuler(new Vector3(_rotation.Y, _rotation.X, 0));
+		transform.Origin.Y = 1.038f;
 		Transform = transform;
-
-		Vector3 velocity = 5 * (float)delta * input;
-		GlobalTranslate(velocity);
 	}
 	
 	public override void _Input(InputEvent input)

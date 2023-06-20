@@ -7,6 +7,7 @@ public class Tensor
     private double _theta;
     private double _r;
     private readonly double[] _matrix;
+    private double _angleBetweenRoads;
 
     public static Tensor Zero => new Tensor(0, new double[] { 0, 0 });
 
@@ -33,6 +34,7 @@ public class Tensor
         _matrix = matrix;
         _oldTheta = false;
         _theta = CalculateTheta();
+        _angleBetweenRoads = Math.PI / 2;//GD.RandRange(2, 4);
     }
 
     public static Tensor FromAngle(double angle)
@@ -121,7 +123,7 @@ public class Tensor
             return Vector2.Zero;
         }
 
-        double angle = Theta + Math.PI / 2;
+        double angle = Theta + _angleBetweenRoads;
         return new Vector2((float)Math.Cos(angle), (float)Math.Sin(angle));
     }
 
