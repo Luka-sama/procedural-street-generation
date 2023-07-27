@@ -1,5 +1,6 @@
-[gd_scene load_steps=5 format=3 uid="uid://bgmuloqqbx6et"]
+[gd_scene load_steps=6 format=3 uid="uid://bgmuloqqbx6et"]
 
+[ext_resource type="Script" path="res://src/Main.cs" id="1_7ia0q"]
 [ext_resource type="Script" path="res://src/ModelGenerator.cs" id="1_rmdud"]
 [ext_resource type="Script" path="res://src/CityScheme.cs" id="2_3jbl0"]
 [ext_resource type="Script" path="res://src/Camera.cs" id="3_168wt"]
@@ -7,13 +8,18 @@
 [sub_resource type="Environment" id="Environment_s5too"]
 ambient_light_color = Color(1, 1, 1, 1)
 
-[node name="Node3D" type="Node3D"]
+[node name="Main" type="Node3D"]
+script = ExtResource("1_7ia0q")
 
 [node name="CityScheme" type="Node2D" parent="."]
+visible = false
 script = ExtResource("2_3jbl0")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_s5too")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.895222, 0.44562, 0, -0.44562, 0.895222, 0, 1.46228, 0)
 
 [node name="Roads" type="MeshInstance3D" parent="."]
 script = ExtResource("1_rmdud")

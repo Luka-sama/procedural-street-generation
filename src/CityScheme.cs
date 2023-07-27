@@ -4,6 +4,8 @@ using Godot;
 
 public partial class CityScheme : Node2D
 {
+    public Vector2 UserPosition { get; set; } = Vector2.Zero;
+    public bool ShouldDrawTensorField { get; set; } = false;
     private const float TensorLineDiameter = 20;
     private Vector2 _origin = Vector2.Zero;
     private Vector2 _worldDimensions = new Vector2(1920, 1080);
@@ -35,8 +37,10 @@ public partial class CityScheme : Node2D
 
     public override void _Draw()
     {
-        //DrawTensorField();
-        DrawRoads();
+        if (ShouldDrawTensorField) DrawTensorField();
+        else DrawRoads();
+        
+        DrawCircle(UserPosition, 10, Colors.LightGreen);
     }
 
     public List<List<Vector2>> GetMainRoads()
@@ -68,7 +72,7 @@ public partial class CityScheme : Node2D
         _tensorField = new(noiseParams);
         for (int i = 0; i < 10; i++)
         {
-            var centre = new Vector2((float)GD.RandRange(0, _worldDimensions.X - 1), _worldDimensions.Y / (i + 2));
+            var centre = new Vector2((float)GD.RandRange(0, _worldDimensions.X - 1), _worldDimensions.Y / (i + 1));
             var size = GD.RandRange(_worldDimensions.X / 10, _worldDimensions.X / 4);
             
             var decay = 0;//GD.RandRange(0, 50);
@@ -118,19 +122,20 @@ public partial class CityScheme : Node2D
 
     private void DrawRoads()
     {
-        Color color1 = Color.Color8(255, 255, 255, 50);
+        Color polylineColor = Color.Color8(255, 255, 255, 50);
+        Color pointColor = Colors.Aqua;
         
         /*foreach (var road in GetMainRoads())
         {
-            DrawPolyline(road.ToArray(), color1, 8);
+            DrawPolylineWithPoints(road.ToArray(), polylineColor, pointColor, 8);
         }*/
         foreach (var road in GetMajorRoads())
         {
-            DrawPolyline(road.ToArray(), color1, 4);
+            DrawPolylineWithPoints(road.ToArray(), polylineColor, pointColor, 4);
         }
         /*foreach (var road in GetMinorRoads())
         {
-            DrawPolyline(road.ToArray(), color1, 2);
+            DrawPolylineWithPoints(road.ToArray(), polylineColor, pointColor, 2);
         }*/
     }
 
@@ -144,6 +149,15 @@ public partial class CityScheme : Node2D
             var t = _tensorField.SamplePoint(p);
             DrawPolyline(GetTensorLine(p, t.GetMajor()), color, 3);
             DrawPolyline(GetTensorLine(p, t.GetMinor()), color, 3);
+        }
+    }
+
+    private void DrawPolylineWithPoints(Vector2[] points, Color polylineColor, Color pointColor, float width)
+    {
+        DrawPolyline(points, polylineColor, width);
+        foreach (var point in points)
+        {
+            DrawCircle(point, width, pointColor);
         }
     }
 

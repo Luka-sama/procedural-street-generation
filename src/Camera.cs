@@ -3,6 +3,7 @@ using System;
 
 public partial class Camera : Camera3D
 {
+	public bool FlightMode { get; set; } = false;
 	private Vector2 _rotation;
 
 	public override void _Ready()
@@ -30,12 +31,17 @@ public partial class Camera : Camera3D
 			input.X += 1;
 		}
 
-		Vector3 velocity = 15 * (float)delta * input;
+		float speed = (Input.IsKeyPressed(Key.Shift) ? 30f : 15f);
+		Vector3 velocity = speed * (float)delta * input;
 		Translate(velocity);
 
 		var transform = Transform;
 		transform.Basis = Basis.FromEuler(new Vector3(_rotation.Y, _rotation.X, 0));
-		transform.Origin.Y = 1.038f;
+		if (!FlightMode)
+		{
+			transform.Origin.Y = 1.038f;
+		}
+
 		Transform = transform;
 	}
 	
