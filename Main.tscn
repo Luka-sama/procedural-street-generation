@@ -1,10 +1,9 @@
-[gd_scene load_steps=7 format=3 uid="uid://bgmuloqqbx6et"]
+[gd_scene load_steps=6 format=3 uid="uid://bgmuloqqbx6et"]
 
 [ext_resource type="Script" path="res://src/Main.cs" id="1_7ia0q"]
 [ext_resource type="Script" path="res://src/ModelGenerator.cs" id="1_rmdud"]
 [ext_resource type="Script" path="res://src/CityScheme.cs" id="2_3jbl0"]
 [ext_resource type="Script" path="res://src/Camera.cs" id="3_168wt"]
-[ext_resource type="Script" path="res://src/Plane.cs" id="4_dpeht"]
 
 [sub_resource type="Environment" id="Environment_s5too"]
 ambient_light_color = Color(1, 1, 1, 1)
@@ -22,15 +21,9 @@ environment = SubResource("Environment_s5too")
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 0.895222, 0.44562, 0, -0.44562, 0.895222, 0, 1.46228, 0)
 
-[node name="Roads" type="CSGCombiner3D" parent="."]
+[node name="Roads" type="MeshInstance3D" parent="."]
 script = ExtResource("1_rmdud")
 
 [node name="Camera3D" type="Camera3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.28622, 1.03778, 3.88209)
 script = ExtResource("3_168wt")
-
-[node name="HeightMap" type="Node2D" parent="."]
-
-[node name="Plane" type="MeshInstance3D" parent="."]
-visible = false
-script = ExtResource("4_dpeht")
