@@ -14,6 +14,7 @@ public partial class CityScheme : Node2D
     private StreamlineGenerator _majorStreamlines;
     private StreamlineGenerator _minorStreamlines;
     private bool _end;
+    private Graph _graph;
 
     public override void _Ready()
     {
@@ -30,6 +31,7 @@ public partial class CityScheme : Node2D
             {
                 _end = true;
                 GD.Print("End of generation");
+                _graph = Graph.CreateFromStreamlines(GetMajorRoads());
                 QueueRedraw();
             }
         }
@@ -56,6 +58,11 @@ public partial class CityScheme : Node2D
     public List<List<Vector2>> GetMinorRoads()
     {
         return _minorStreamlines.AllStreamlinesSimple;
+    }
+
+    public Graph GetGraph()
+    {
+        return _graph;
     }
 
     private void GenerateTensorField()
@@ -122,6 +129,10 @@ public partial class CityScheme : Node2D
 
     private void DrawRoads()
     {
+        if (_graph == null)
+        {
+            return;
+        }
         Color polylineColor = Color.Color8(255, 255, 255, 50);
         Color pointColor = Colors.Aqua;
         
@@ -129,10 +140,14 @@ public partial class CityScheme : Node2D
         {
             DrawPolylineWithPoints(road.ToArray(), polylineColor, pointColor, 8);
         }*/
-        foreach (var road in GetMajorRoads())
+        foreach (var edge in _graph.Edges)
+        {
+            DrawLineWithPoints(edge.From.Point, edge.To.Point, polylineColor, pointColor, 4);
+        }
+        /*foreach (var road in GetMajorRoads())
         {
             DrawPolylineWithPoints(road.ToArray(), polylineColor, pointColor, 4);
-        }
+        }*/
         /*foreach (var road in GetMinorRoads())
         {
             DrawPolylineWithPoints(road.ToArray(), polylineColor, pointColor, 2);
@@ -150,6 +165,13 @@ public partial class CityScheme : Node2D
             DrawPolyline(GetTensorLine(p, t.GetMajor()), color, 3);
             DrawPolyline(GetTensorLine(p, t.GetMinor()), color, 3);
         }
+    }
+    
+    private void DrawLineWithPoints(Vector2 from, Vector2 to, Color lineColor, Color pointColor, float width)
+    {
+        DrawLine(from, to, lineColor, width);
+        DrawCircle(from, width, pointColor);
+        DrawCircle(to, width, pointColor);
     }
 
     private void DrawPolylineWithPoints(Vector2[] points, Color polylineColor, Color pointColor, float width)
