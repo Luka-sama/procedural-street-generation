@@ -2,10 +2,32 @@
 using System.Collections.Generic;
 using Godot;
 
-public struct Edge
+public class Edge
 {
     public Vertex From { get; init; }
     public Vertex To { get; init; }
+    public int RoadNum  { get; init; }
+
+    public float Width { get; set; } = 0;
+    public Vector2 FromLeft { get; set; }
+    public Vector2 FromRight { get; set; }
+    public Vector2 ToLeft { get; set; }
+    public Vector2 ToRight { get; set; }
+    
+    public Vector2 FromExtraPoint { get; set; }
+    public bool HasFromExtraPoint { get; set; } = false;
+    public bool IsFromExtraPointInside { get; set; } = false;
+    
+    public Vector2 ToExtraPoint { get; set; }
+    public bool HasToExtraPoint { get; set; } = false;
+    public bool IsToExtraPointInside { get; set; } = false;
+
+    public Edge(Vertex from, Vertex to, int roadNum)
+    {
+        From = from;
+        To = to;
+        RoadNum = roadNum;
+    }
 }
 
 /**
@@ -30,6 +52,7 @@ public class Graph
 {
     public List<Vertex> Vertices { get; }
     public List<Edge> Edges { get; }
+    public int RoadCount { get; set; }
 
     public Graph()
     {
@@ -42,7 +65,8 @@ public class Graph
         Graph graph = new();
         List<List<Edge>> unprocessedEdges = new();
         var (minPoints, maxPoints) = GetStreamlinesBounding(streamlines);
-        
+
+        int roadNum = 0;
         foreach (var streamline in streamlines)
         {
             List<Edge> streamlineEdges = new();
@@ -50,15 +74,17 @@ public class Graph
             Vertex lastVertex = null;
             foreach (var point in streamline)
             {
-                Vertex vertex = new(point);
-                graph.Vertices.Add(vertex);
-                if (lastVertex != null)
+                Vertex vertex = graph.AddVertex(point);
+                if (lastVertex != null && lastVertex != vertex)
                 {
-                    streamlineEdges.Add(new() { From = lastVertex, To = vertex });
+                    streamlineEdges.Add(new(lastVertex, vertex, roadNum));
                 }
                 lastVertex = vertex;
             }
+
+            roadNum++;
         }
+        graph.RoadCount = roadNum;
         
         foreach (var streamlineEdges in unprocessedEdges)
         {
@@ -91,6 +117,18 @@ public class Graph
         
         return (minPoints, maxPoints);
     }
+    
+    private Vertex AddVertex(Vector2 point)
+    {
+        foreach (var vertex in Vertices)
+        {
+            if ((vertex.Point - point).Length() < 15) return vertex;
+        }
+        
+        var newVertex = new Vertex(point);
+        Vertices.Add(newVertex);
+        return newVertex;
+    }
 
     private void ProcessEdge(List<List<Edge>> unprocessedEdges, Edge edge,
         List<Vector2> minPoints, List<Vector2> maxPoints, List<Edge> streamlineEdges)
@@ -115,10 +153,16 @@ public class Graph
             foreach (var edge2 in streamlineEdges2)
             {
                 Vector2 from2 = edge2.From.Point, to2 = edge2.To.Point;
+                //Vector2 dir = (to - from).Normalized(), dir2 = (to2 - from2).Normalized();
+                //Variant intersectionPoint = Geometry2D.SegmentIntersectsSegment(from - dir, to + dir,from2 - dir2, to2 + dir2);
                 var intersectionPoint = Geometry2D.SegmentIntersectsSegment(from, to,from2, to2);
                 if (intersectionPoint.VariantType == Variant.Type.Vector2)
                 {
                     var point = (Vector2)intersectionPoint;
+                    /*var closest = Geometry2D.GetClosestPointToSegment(point, from, to);
+                    var closest2 = Geometry2D.GetClosestPointToSegment(point, from2, to2);
+                    if (!closest.IsEqualApprox(point)) point = closest;
+                    else if (!closest2.IsEqualApprox(point)) point = closest2;*/
                     if ((!from.IsEqualApprox(point) && !to.IsEqualApprox(point)) || 
                         (!from2.IsEqualApprox(point) && !to2.IsEqualApprox(point))) {
                         DivideEdges(edge, edge2, point, unprocessedEdges,
@@ -144,11 +188,7 @@ public class Graph
         else if (edge1.To.Point.IsEqualApprox(intersectionPoint)) intersection = edge1.To;
         else if (edge2.From.Point.IsEqualApprox(intersectionPoint)) intersection = edge2.From;
         else if (edge2.To.Point.IsEqualApprox(intersectionPoint)) intersection = edge2.To;
-        else
-        {
-            intersection = new(intersectionPoint);
-            Vertices.Add(intersection);
-        }
+        else intersection = AddVertex(intersectionPoint);
 
         var dividedEdges1 = DivideEdge(edge1, intersection, streamlineEdges1);
         var dividedEdges2 = DivideEdge(edge2, intersection, streamlineEdges2);
@@ -163,8 +203,8 @@ public class Graph
         
         if (intersection != edge.From && intersection != edge.To)
         {
-            var half1 = edge with { From = intersection };
-            var half2 = edge with { To = intersection };
+            Edge half1 = new(intersection, edge.To, edge.RoadNum);
+            Edge half2 = new(edge.From, intersection, edge.RoadNum);
             dividedEdges.Add(half1);
             dividedEdges.Add(half2);
             streamlineEdges.Remove(edge);
