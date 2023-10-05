@@ -55,14 +55,11 @@ public partial class ModelGenerator : MeshInstance3D
 		}
 
 		if (_debugType == DebugType.None) _st.SetColor(Colors.Gray);
-		var k = 0;
 		foreach (var edge in graph.Edges)
 		{
 			if (_debugType == DebugType.HighlightRoads) _st.SetColor(roadColors[edge.RoadNum]);
 			ClipEdgePolygon(edge);
 			DrawEdgePolygon(edge);
-
-			k++;
 		}
 
 		_st.SetColor(Colors.Lime);
@@ -87,7 +84,7 @@ public partial class ModelGenerator : MeshInstance3D
 
 	private void CalcEdgePolygon(Edge edge, float roadWidth)
 	{
-		if (!Mathf.IsZeroApprox(edge.Width)) return;
+		if (edge.Polygons.Count > 0) return;
 		edge.Width = roadWidth;
 
 		// Calc original rectangle
@@ -95,10 +92,13 @@ public partial class ModelGenerator : MeshInstance3D
 		Vector2 dir = (to - from).Normalized();
 		Vector2 perpDir = new Vector2(dir.Y, -dir.X);
 		Vector2 offset = perpDir * roadWidth / 2;
-		edge.Polygons[0].Add(from - offset); // FromLeft
-		edge.Polygons[0].Add(from + offset); // FromRight
-		edge.Polygons[0].Add(to + offset); // ToRight
-		edge.Polygons[0].Add(to - offset); // ToLeft
+		edge.Polygons.Add(new()
+		{
+			from - offset, // FromLeft
+			from + offset, // FromRight
+			to + offset, // ToRight
+			to - offset // ToLeft
+		});
 
 		TriangleConnection(edge, true);
 		TriangleConnection(edge, false);
@@ -147,7 +147,7 @@ public partial class ModelGenerator : MeshInstance3D
 		Vertex vertex = (isFrom ? edge.From : edge.To);
 		foreach (var edge2 in vertex.Edges)
 		{
-			if (edge == edge2 || edge2.Polygons[0].Count < 1 || edge.RoadNum != edge2.RoadNum) continue;
+			if (edge == edge2 || edge2.Polygons.Count < 1 || edge.RoadNum != edge2.RoadNum) continue;
 			/*int offset = (isFrom ? 0 : 2);
 			Vector2 nearestToFirst = edge2.Polygon[0];
 			Vector2 nearestToSecond = edge2.Polygon[0];
@@ -198,103 +198,6 @@ public partial class ModelGenerator : MeshInstance3D
 		}
 	}
 
-	private void CheckIntersections(Edge edge, bool isFrom)
-	{
-		if (edge.Width < 0) return;
-		
-		var vertex = (isFrom ? edge.From : edge.To);
-		List<Edge> edgesToCheck = new();
-		List<Edge> intersectingEdges = new();
-		foreach (var edge2 in vertex.Edges)
-		{
-			if (edge == edge2 || Mathf.IsZeroApprox(edge2.Width) || edge.RoadNum == edge2.RoadNum || edgesToCheck.Contains(edge2)) continue;
-			edgesToCheck.Add(edge2);
-			/*var vertex2 = (edge2.From == vertex ? edge2.To : edge2.From);
-			foreach (var edge3 in vertex2.Edges)
-			{
-				if (edge == edge3 || Mathf.IsZeroApprox(edge3.Width) || edge.RoadNum == edge3.RoadNum || edgesToCheck.Contains(edge3)) continue;
-				edgesToCheck.Add(edge3);
-			}*/
-		}
-		
-		foreach (var edge2 in edgesToCheck)
-		{
-			/*Vector2[] polygon = { edge2.FromLeft, edge2.FromRight, edge2.ToRight, edge2.ToLeft };
-			if (Geometry2D.IsPointInPolygon(edge.FromLeft, polygon) &&
-			    Geometry2D.IsPointInPolygon(edge.FromRight, polygon) &&
-			    Geometry2D.IsPointInPolygon(edge.ToLeft, polygon) && Geometry2D.IsPointInPolygon(edge.ToRight, polygon))
-			{
-				edge.Width = -1;
-				return;
-			}*/
-			
-			var shortened1 = CheckIntersection(edge, edge2.FromLeft, edge2.ToLeft, isFrom);
-			var shortened2 = CheckIntersection(edge, edge2.FromRight, edge2.ToRight, isFrom);
-			var shortened3 = CheckIntersection(edge, edge2.FromLeft, edge2.FromRight, isFrom);
-			var shortened4 = CheckIntersection(edge, edge2.ToLeft, edge2.ToRight, isFrom);
-			if (shortened1 || shortened2 || shortened3 || shortened4)
-			{
-				intersectingEdges.Add(edge2);
-			}
-		}
-		
-		foreach (var edge2 in intersectingEdges)
-		{
-			var shorterLeft = (edge2.From == vertex ? edge2.FromLeft : edge2.ToLeft);
-			var shorterRight = (edge2.From == vertex ? edge2.FromRight : edge2.ToRight);
-			var left = (isFrom ? edge.FromLeft : edge.ToLeft);
-			var right = (isFrom ? edge.FromRight : edge.ToRight);
-			var distance1 = (shorterRight - Geometry2D.GetClosestPointToSegment(shorterRight, left, right)).Length();
-			var distance2 = (shorterLeft - Geometry2D.GetClosestPointToSegment(shorterLeft, left, right)).Length();
-			var minDistance = Mathf.Min(distance1, distance2);
-			var extraPoint = shorterLeft;
-			if (distance1 < distance2) extraPoint = shorterRight;
-			var dir1 = (right - left).Normalized();
-			var dir2 = (extraPoint - left).Normalized();
-			if (Mathf.IsZeroApprox((dir2 - dir1).Length())) continue;
-			var hasPoint = (isFrom ? edge.HasFromExtraPoint : edge.HasToExtraPoint);
-			var oldPoint = (isFrom ? edge.FromExtraPoint : edge.ToExtraPoint);
-			var oldDistance = (hasPoint ? (oldPoint - Geometry2D.GetClosestPointToSegment(oldPoint, left, right)).Length() : 0);
-			if (isFrom)
-			{
-				if (edge.HasFromExtraPoint && oldDistance < minDistance) return;
-				edge.HasFromExtraPoint = true;
-				edge.FromExtraPoint = extraPoint;
-				edge.IsFromExtraPointInside = Geometry2D.PointIsInsideTriangle(extraPoint, edge.FromLeft, edge.FromRight, edge.ToRight);
-			} else
-			{
-				if (edge.HasToExtraPoint && oldDistance < minDistance) return;
-				edge.HasToExtraPoint = true;
-				edge.ToExtraPoint = extraPoint;
-				edge.IsToExtraPointInside = Geometry2D.PointIsInsideTriangle(extraPoint, edge.ToRight, edge.ToLeft, edge.FromLeft);
-			}
-		}
-	}
-
-	private bool CheckIntersection(Edge edge, Vector2 fromB, Vector2 toB, bool isFrom)
-	{
-		bool shortened1 = CheckIntersectionOneSide(edge, fromB, toB, isFrom, true);
-		bool shortened2 = CheckIntersectionOneSide(edge, fromB, toB, isFrom, false);
-		return shortened1 || shortened2;
-	}
-
-	private bool CheckIntersectionOneSide(Edge edge, Vector2 fromB, Vector2 toB, bool isFrom, bool isLeft)
-	{
-		var from = (isLeft ? edge.FromLeft : edge.FromRight);
-		var to = (isLeft ? edge.ToLeft : edge.ToRight);
-		var check = Geometry2D.SegmentIntersectsSegment(from, to, fromB, toB);
-		if (check.VariantType != Variant.Type.Vector2) return false;
-		var intersection = (Vector2)check;
-		if ((to - intersection).Length() >= (to - from).Length()) return false;
-		
-		if (isFrom && isLeft) edge.FromLeft = intersection;
-		else if (isFrom) edge.FromRight = intersection;
-		else if (isLeft) edge.ToLeft = intersection;
-		else edge.ToRight = intersection;
-		
-		return true;
-	}
-
 	private void DrawEdgePolygon(Edge edge)
 	{
 		foreach (var p in edge.Polygons)
@@ -304,37 +207,6 @@ public partial class ModelGenerator : MeshInstance3D
 			{
 				DrawTriangle(p[indexes[i]], p[indexes[i + 1]], p[indexes[i + 2]]);
 			}
-		}
-	}
-
-	private void DrawEdgeTriangles(Edge edge)
-	{
-		if (edge.Width < 0) return;
-
-		if (edge.HasFromExtraPoint && edge.IsFromExtraPointInside)
-		{
-			DrawTriangle(edge.FromLeft, edge.FromExtraPoint, edge.ToRight);
-			DrawTriangle(edge.FromExtraPoint, edge.FromRight, edge.ToRight);
-		} else
-		{
-			DrawTriangle(edge.FromLeft, edge.FromRight, edge.ToRight);
-		}
-		if (edge.HasToExtraPoint && edge.IsToExtraPointInside)
-		{
-			DrawTriangle(edge.ToRight, edge.ToExtraPoint, edge.FromLeft);
-			DrawTriangle(edge.ToExtraPoint, edge.ToLeft, edge.FromLeft);
-		} else
-		{
-			DrawTriangle(edge.ToRight, edge.ToLeft, edge.FromLeft);
-		}
-
-		if (edge.HasFromExtraPoint && !edge.IsFromExtraPointInside)
-		{
-			DrawTriangle(edge.FromLeft, edge.FromRight, edge.FromExtraPoint);
-		}
-		if (edge.HasToExtraPoint && !edge.IsToExtraPointInside)
-		{
-			DrawTriangle(edge.ToLeft, edge.ToRight, edge.ToExtraPoint);
 		}
 	}
 

@@ -9,22 +9,10 @@ public class Edge
     public Vertex To { get; }
     public int RoadNum { get; }
     
-    public List<List<Vector2>> Polygons { get; set; } = new() {new()};
+    public List<List<Vector2>> Polygons { get; set; } = new();
 
     public bool IsClipped;
     public float Width { get; set; }
-    public Vector2 FromLeft { get; set; }
-    public Vector2 FromRight { get; set; }
-    public Vector2 ToLeft { get; set; }
-    public Vector2 ToRight { get; set; }
-    
-    public Vector2 FromExtraPoint { get; set; }
-    public bool HasFromExtraPoint { get; set; }
-    public bool IsFromExtraPointInside { get; set; }
-    
-    public Vector2 ToExtraPoint { get; set; }
-    public bool HasToExtraPoint { get; set; }
-    public bool IsToExtraPointInside { get; set; }
 
     public Edge(Vertex from, Vertex to, int roadNum)
     {
