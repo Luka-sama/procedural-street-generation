@@ -1,6 +1,6 @@
-using System;
 using Godot;
 using System.Collections.Generic;
+using System.Linq;
 
 public enum DebugType
 {
@@ -11,65 +11,72 @@ public enum DebugType
 
 public partial class ModelGenerator : MeshInstance3D
 {
-	public float ModelScale { get; } = 0.3f;
-	private RandomNumberGenerator _rng = new RandomNumberGenerator();
+	public float ModelScale => 0.5f;
+	private CityScheme _cityScheme;
+	private RandomNumberGenerator _rng = new();
 	private ulong _savedState;
+	private SurfaceTool _st = new();
+	private DebugType _debugType = DebugType.None;
 
 	public override async void _Ready()
 	{
 		_savedState = _rng.State;
+		_cityScheme = GetNode("../CityScheme") as CityScheme;
 
 		await ToSignal(GetTree().CreateTimer(5), "timeout");
-		GenerateRoads(DebugType.None);
+		GenerateModel();
 	}
 
-	public void GenerateRoads(DebugType debugType)
+	public void SetDebugType(DebugType debugType)
 	{
-		var cityScheme = (GetNode("../CityScheme") as CityScheme);
-		//GenerateModel(cityScheme.GetMainRoads(), 30, 150);
-		GenerateModel(cityScheme.GetGraph(), debugType);
-		//GenerateModel(cityScheme.GetMinorRoads(), 5, 50);
+		_debugType = debugType;
 	}
-	
-	private void GenerateModel(Graph graph, DebugType debugType)
+
+	public void GenerateModel()
 	{
+		var graph = _cityScheme.GetGraph();
 		_rng.State = _savedState;
-
-		var st = new SurfaceTool();
-		st.Begin(Mesh.PrimitiveType.Triangles);
-		st.SetUV(new Vector2(0, 0));
+		
+		_st.Begin(Mesh.PrimitiveType.Triangles);
+		_st.SetUV(new Vector2(0, 0));
 
 		List<Color> roadColors = new();
-		if (debugType == DebugType.HighlightRoads)
+		if (_debugType == DebugType.HighlightRoads)
 		{
 			for (int i = 0; i < graph.RoadCount; i++)
 			{
 				roadColors.Add(new Color(_rng.Randf(), _rng.Randf(), _rng.Randf()));
 			}
 		}
-
-		if (debugType == DebugType.None) st.SetColor(Colors.Gray);
-		for (int i = 0; i < graph.RoadCount; i++)
+		
+		foreach (var edge in graph.Edges)
 		{
-			foreach (var edge in graph.Edges)
-			{
-				if (edge.RoadNum != i) continue;
-				CalcEdgeTriangles(edge, 15);
-				if (debugType == DebugType.HighlightRoads) st.SetColor(roadColors[edge.RoadNum]);
-				DrawEdgeTriangles(edge, debugType, st);
-			}
+			CalcEdgePolygon(edge, 15);
 		}
 
-		st.SetColor(Colors.Lime);
+		if (_debugType == DebugType.None) _st.SetColor(Colors.Gray);
+		var k = 0;
+		foreach (var edge in graph.Edges)
+		{
+			if (_debugType == DebugType.HighlightRoads) _st.SetColor(roadColors[edge.RoadNum]);
+			ClipEdgePolygon(edge);
+			DrawEdgePolygon(edge);
+
+			k++;
+		}
+
+		_st.SetColor(Colors.Lime);
+		var savedDebugType = _debugType;
 		foreach (var vertex in graph.Vertices)
 		{
-			DrawTriangle(vertex.Point + new Vector2(-2, -2), vertex.Point, vertex.Point + new Vector2(-2, 2), st, DebugType.None);
+			DrawTriangle(vertex.Point + new Vector2(-2, -2), vertex.Point, vertex.Point + new Vector2(-2, 2));
 		}
+		_debugType = savedDebugType;
 
-		st.Index();
-		st.GenerateNormals();
-		st.GenerateTangents();
-		var mesh = st.Commit();
+		_st.Index();
+		_st.GenerateNormals();
+		_st.GenerateTangents();
+		var mesh = _st.Commit();
 		Scale = ModelScale * Vector3.One;
 		Mesh = mesh;
 
@@ -78,7 +85,7 @@ public partial class ModelGenerator : MeshInstance3D
 		MaterialOverride = material;
 	}
 
-	private void CalcEdgeTriangles(Edge edge, float roadWidth)
+	private void CalcEdgePolygon(Edge edge, float roadWidth)
 	{
 		if (!Mathf.IsZeroApprox(edge.Width)) return;
 		edge.Width = roadWidth;
@@ -88,17 +95,51 @@ public partial class ModelGenerator : MeshInstance3D
 		Vector2 dir = (to - from).Normalized();
 		Vector2 perpDir = new Vector2(dir.Y, -dir.X);
 		Vector2 offset = perpDir * roadWidth / 2;
-		edge.FromLeft = from - offset;
-		edge.FromRight = from + offset;
-		edge.ToLeft = to - offset;
-		edge.ToRight = to + offset;
-		
+		edge.Polygons[0].Add(from - offset); // FromLeft
+		edge.Polygons[0].Add(from + offset); // FromRight
+		edge.Polygons[0].Add(to + offset); // ToRight
+		edge.Polygons[0].Add(to - offset); // ToLeft
+
 		TriangleConnection(edge, true);
 		TriangleConnection(edge, false);
+	}
+	
+	private void ClipEdgePolygon(Edge edge)
+	{
+		if (edge.IsClipped) return;
+		ClipPolygons(edge, true);
+		ClipPolygons(edge, false);
+		edge.IsClipped = true;
+	}
 
-		// Shorten the sides to avoid overlapping
-		CheckIntersections(edge, true);
-		CheckIntersections(edge, false);
+	// Clips the polygons to avoid overlapping
+	private void ClipPolygons(Edge edge, bool isFrom)
+	{
+		Vertex vertex = (isFrom ? edge.From : edge.To);
+		foreach (var edge2 in vertex.Edges)
+		{
+			if (edge == edge2 || edge2.Polygons.Count == 0 || edge.RoadNum == edge2.RoadNum || !edge2.IsClipped) continue;
+			edge.Polygons = ClipMultiplePolygons(edge.Polygons, edge2.Polygons);
+		}
+	}
+
+	private List<List<Vector2>> ClipMultiplePolygons(List<List<Vector2>> polygonsA, List<List<Vector2>> polygonsB)
+	{
+		foreach (var polygonB in polygonsB)
+		{
+			List<List<Vector2>> result = new();
+			foreach (var polygonA in polygonsA)
+			{
+				var polygons = Geometry2D.ClipPolygons(polygonA.ToArray(), polygonB.ToArray());
+				foreach (var polygon in polygons)
+				{
+					if (!Geometry2D.IsPolygonClockwise(polygon)) result.Add(polygon.ToList());
+				}
+			}
+			polygonsA = result;
+		}
+
+		return polygonsA;
 	}
 
 	private void TriangleConnection(Edge edge, bool isFrom)
@@ -106,8 +147,44 @@ public partial class ModelGenerator : MeshInstance3D
 		Vertex vertex = (isFrom ? edge.From : edge.To);
 		foreach (var edge2 in vertex.Edges)
 		{
-			if (edge == edge2 || Mathf.IsZeroApprox(edge2.Width) || edge.RoadNum != edge2.RoadNum) continue;
-			var left = (edge2.From == vertex ? edge2.FromLeft : edge2.ToLeft);
+			if (edge == edge2 || edge2.Polygons[0].Count < 1 || edge.RoadNum != edge2.RoadNum) continue;
+			/*int offset = (isFrom ? 0 : 2);
+			Vector2 nearestToFirst = edge2.Polygon[0];
+			Vector2 nearestToSecond = edge2.Polygon[0];
+			float minDistanceToFirst = (edge.Polygon[offset] - nearestToFirst).Length();
+			float minDistanceToSecond = (edge.Polygon[offset + 1] - nearestToSecond).Length();
+			foreach (var point in edge2.Polygon)
+			{
+				var distanceToFirst = (edge.Polygon[offset] - point).Length();
+				if (distanceToFirst < minDistanceToFirst)
+				{
+					minDistanceToFirst = distanceToFirst;
+					nearestToFirst = point;
+				}
+				
+				var distanceToSecond = (edge.Polygon[offset + 1] - point).Length();
+				if (distanceToSecond < minDistanceToSecond)
+				{
+					minDistanceToSecond = distanceToSecond;
+					nearestToSecond = point;
+				}
+			}
+			edge.Polygon[offset] = nearestToFirst;
+			edge.Polygon[offset + 1] = nearestToSecond;*/
+
+			var left = (edge2.From == vertex ? edge2.Polygons[0][0] : edge2.Polygons[0][3]);
+			var right = (edge2.From == vertex ? edge2.Polygons[0][1] : edge2.Polygons[0][2]);
+			if (isFrom)
+			{
+				edge.Polygons[0][0] = left;
+				edge.Polygons[0][1] = right;
+			} else
+			{
+				edge.Polygons[0][3] = left;
+				edge.Polygons[0][2] = right;
+			}
+			
+			/*var left = (edge2.From == vertex ? edge2.FromLeft : edge2.ToLeft);
 			var right = (edge2.From == vertex ? edge2.FromRight : edge2.ToRight);
 			if (isFrom)
 			{
@@ -117,7 +194,7 @@ public partial class ModelGenerator : MeshInstance3D
 			{
 				edge.ToLeft = left;
 				edge.ToRight = right;
-			}
+			}*/
 		}
 	}
 
@@ -125,7 +202,7 @@ public partial class ModelGenerator : MeshInstance3D
 	{
 		if (edge.Width < 0) return;
 		
-		Vertex vertex = (isFrom ? edge.From : edge.To);
+		var vertex = (isFrom ? edge.From : edge.To);
 		List<Edge> edgesToCheck = new();
 		List<Edge> intersectingEdges = new();
 		foreach (var edge2 in vertex.Edges)
@@ -151,12 +228,11 @@ public partial class ModelGenerator : MeshInstance3D
 				return;
 			}*/
 			
-			var shorterLeft = (edge2.From == vertex ? edge2.FromLeft : edge2.ToLeft);
-			var shorterRight = (edge2.From == vertex ? edge2.FromRight : edge2.ToRight);
-			var shortened1 = CheckIntersection(edge, edge2.FromLeft, edge2.ToLeft, isFrom, shorterLeft, shorterRight);
-			var shortened2 = CheckIntersection(edge, edge2.FromRight, edge2.ToRight, isFrom, shorterLeft, shorterRight);
-			var shortened3 = CheckIntersection(edge, shorterLeft, shorterRight, isFrom, shorterLeft, shorterRight);
-			if (shortened1 || shortened2 || shortened3)
+			var shortened1 = CheckIntersection(edge, edge2.FromLeft, edge2.ToLeft, isFrom);
+			var shortened2 = CheckIntersection(edge, edge2.FromRight, edge2.ToRight, isFrom);
+			var shortened3 = CheckIntersection(edge, edge2.FromLeft, edge2.FromRight, isFrom);
+			var shortened4 = CheckIntersection(edge, edge2.ToLeft, edge2.ToRight, isFrom);
+			if (shortened1 || shortened2 || shortened3 || shortened4)
 			{
 				intersectingEdges.Add(edge2);
 			}
@@ -195,7 +271,7 @@ public partial class ModelGenerator : MeshInstance3D
 		}
 	}
 
-	private bool CheckIntersection(Edge edge, Vector2 fromB, Vector2 toB, bool isFrom, Vector2 shorterLeft, Vector2 shorterRight)
+	private bool CheckIntersection(Edge edge, Vector2 fromB, Vector2 toB, bool isFrom)
 	{
 		bool shortened1 = CheckIntersectionOneSide(edge, fromB, toB, isFrom, true);
 		bool shortened2 = CheckIntersectionOneSide(edge, fromB, toB, isFrom, false);
@@ -219,48 +295,59 @@ public partial class ModelGenerator : MeshInstance3D
 		return true;
 	}
 
-	private void DrawEdgeTriangles(Edge edge, DebugType debugType, SurfaceTool st)
+	private void DrawEdgePolygon(Edge edge)
+	{
+		foreach (var p in edge.Polygons)
+		{
+			var indexes = Geometry2D.TriangulatePolygon(p.ToArray());
+			for (int i = 0; i < indexes.Length; i += 3)
+			{
+				DrawTriangle(p[indexes[i]], p[indexes[i + 1]], p[indexes[i + 2]]);
+			}
+		}
+	}
+
+	private void DrawEdgeTriangles(Edge edge)
 	{
 		if (edge.Width < 0) return;
 
 		if (edge.HasFromExtraPoint && edge.IsFromExtraPointInside)
 		{
-			DrawTriangle(edge.FromLeft, edge.FromExtraPoint, edge.ToRight, st, debugType);
-			DrawTriangle(edge.FromExtraPoint, edge.FromRight, edge.ToRight, st, debugType);
+			DrawTriangle(edge.FromLeft, edge.FromExtraPoint, edge.ToRight);
+			DrawTriangle(edge.FromExtraPoint, edge.FromRight, edge.ToRight);
 		} else
 		{
-			DrawTriangle(edge.FromLeft, edge.FromRight, edge.ToRight, st, debugType);
+			DrawTriangle(edge.FromLeft, edge.FromRight, edge.ToRight);
 		}
 		if (edge.HasToExtraPoint && edge.IsToExtraPointInside)
 		{
-			DrawTriangle(edge.ToRight, edge.ToExtraPoint, edge.FromLeft, st, debugType);
-			DrawTriangle(edge.ToExtraPoint, edge.ToLeft, edge.FromLeft, st, debugType);
+			DrawTriangle(edge.ToRight, edge.ToExtraPoint, edge.FromLeft);
+			DrawTriangle(edge.ToExtraPoint, edge.ToLeft, edge.FromLeft);
 		} else
 		{
-			DrawTriangle(edge.ToRight, edge.ToLeft, edge.FromLeft, st, debugType);
+			DrawTriangle(edge.ToRight, edge.ToLeft, edge.FromLeft);
 		}
 
 		if (edge.HasFromExtraPoint && !edge.IsFromExtraPointInside)
 		{
-			DrawTriangle(edge.FromLeft, edge.FromRight, edge.FromExtraPoint, st, debugType);
+			DrawTriangle(edge.FromLeft, edge.FromRight, edge.FromExtraPoint);
 		}
 		if (edge.HasToExtraPoint && !edge.IsToExtraPointInside)
 		{
-			DrawTriangle(edge.ToLeft, edge.ToRight, edge.ToExtraPoint, st, debugType);
+			DrawTriangle(edge.ToLeft, edge.ToRight, edge.ToExtraPoint);
 		}
 	}
 
-	private void DrawTriangle(Vector2 a, Vector2 b, Vector2 c, SurfaceTool st, DebugType debugType)
+	private void DrawTriangle(Vector2 a, Vector2 b, Vector2 c)
 	{
 		// Ensure that vertices are CCW
 		if ((b - a).Cross(c - a) < 0) (a, b) = (b, a);
 		
-		// Colors.Yellow, Colors.Cyan, Colors.Magenta
-		if (debugType == DebugType.HighlightTriangles) st.SetColor(Colors.Red);
-		st.AddVertex(new Vector3(a.X, 0, a.Y));
-		if (debugType == DebugType.HighlightTriangles) st.SetColor(Colors.Green);
-		st.AddVertex(new Vector3(b.X, 0, b.Y));
-		if (debugType == DebugType.HighlightTriangles) st.SetColor(Colors.Blue);
-		st.AddVertex(new Vector3(c.X, 0, c.Y));
+		if (_debugType == DebugType.HighlightTriangles) _st.SetColor(Colors.Red);
+		_st.AddVertex(new Vector3(a.X, 0, a.Y));
+		if (_debugType == DebugType.HighlightTriangles) _st.SetColor(Colors.Green);
+		_st.AddVertex(new Vector3(b.X, 0, b.Y));
+		if (_debugType == DebugType.HighlightTriangles) _st.SetColor(Colors.Blue);
+		_st.AddVertex(new Vector3(c.X, 0, c.Y));
 	}
 }

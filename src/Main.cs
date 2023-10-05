@@ -30,13 +30,16 @@ public partial class Main : Node3D
 	{
 		if (e.IsActionPressed("debug_none"))
 		{
-			_roads.GenerateRoads(DebugType.None);
+			_roads.SetDebugType(DebugType.None);
+			_roads.GenerateModel();
 		} else if (e.IsActionPressed("debug_highlight_roads"))
 		{
-			_roads.GenerateRoads(DebugType.HighlightRoads);
+			_roads.SetDebugType(DebugType.HighlightRoads);
+			_roads.GenerateModel();
 		} else if (e.IsActionPressed("debug_highlight_triangles"))
 		{
-			_roads.GenerateRoads(DebugType.HighlightTriangles);
+			_roads.SetDebugType(DebugType.HighlightTriangles);
+			_roads.GenerateModel();
 		} else if (e.IsActionPressed("toggle_city_scheme_visibility"))
 		{
 			_cityScheme.Visible = !_cityScheme.Visible;

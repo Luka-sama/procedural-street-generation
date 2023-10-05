@@ -1,26 +1,30 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 
 public class Edge
 {
-    public Vertex From { get; init; }
-    public Vertex To { get; init; }
-    public int RoadNum  { get; init; }
+    public Vertex From { get; }
+    public Vertex To { get; }
+    public int RoadNum { get; }
+    
+    public List<List<Vector2>> Polygons { get; set; } = new() {new()};
 
-    public float Width { get; set; } = 0;
+    public bool IsClipped;
+    public float Width { get; set; }
     public Vector2 FromLeft { get; set; }
     public Vector2 FromRight { get; set; }
     public Vector2 ToLeft { get; set; }
     public Vector2 ToRight { get; set; }
     
     public Vector2 FromExtraPoint { get; set; }
-    public bool HasFromExtraPoint { get; set; } = false;
-    public bool IsFromExtraPointInside { get; set; } = false;
+    public bool HasFromExtraPoint { get; set; }
+    public bool IsFromExtraPointInside { get; set; }
     
     public Vector2 ToExtraPoint { get; set; }
-    public bool HasToExtraPoint { get; set; } = false;
-    public bool IsToExtraPointInside { get; set; } = false;
+    public bool HasToExtraPoint { get; set; }
+    public bool IsToExtraPointInside { get; set; }
 
     public Edge(Vertex from, Vertex to, int roadNum)
     {
@@ -50,18 +54,13 @@ public class Vertex
 
 public class Graph
 {
-    public List<Vertex> Vertices { get; }
-    public List<Edge> Edges { get; }
-    public int RoadCount { get; set; }
-
-    public Graph()
-    {
-        Vertices = new();
-        Edges = new();
-    }
+    public List<Vertex> Vertices { get; } = new();
+    public List<Edge> Edges { get; private set; } = new();
+    public int RoadCount { get; private set; }
 
     public static Graph CreateFromStreamlines(List<List<Vector2>> streamlines, bool deleteDangling = false)
     {
+        GD.Print("Begin graph generating...");
         Graph graph = new();
         List<List<Edge>> unprocessedEdges = new();
         var (minPoints, maxPoints) = GetStreamlinesBounding(streamlines);
@@ -95,6 +94,8 @@ public class Graph
             }
         }
 
+        // Sort for correct drawing
+        graph.Edges = graph.Edges.OrderBy(edge => edge.RoadNum).ToList();
         return graph;
     }
 
@@ -120,12 +121,20 @@ public class Graph
     
     private Vertex AddVertex(Vector2 point)
     {
+        float maxDistance = 15;
+        Vertex nearestVertex = null;
         foreach (var vertex in Vertices)
         {
-            if ((vertex.Point - point).Length() < 15) return vertex;
+            float distance = (vertex.Point - point).Length();
+            if (distance < maxDistance)
+            {
+                maxDistance = distance;
+                nearestVertex = vertex;
+            }
         }
+        if (nearestVertex != null) return nearestVertex;
         
-        var newVertex = new Vertex(point);
+        var newVertex = new Vertex(new Vector2((float) Math.Round(point.X), (float) Math.Round(point.Y)));
         Vertices.Add(newVertex);
         return newVertex;
     }

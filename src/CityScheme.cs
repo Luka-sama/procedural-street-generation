@@ -5,7 +5,7 @@ using Godot;
 public partial class CityScheme : Node2D
 {
     public Vector2 UserPosition { get; set; } = Vector2.Zero;
-    public bool ShouldDrawTensorField { get; set; } = false;
+    public bool ShouldDrawTensorField { get; set; }
     private const float TensorLineDiameter = 20;
     private Vector2 _origin = Vector2.Zero;
     private Vector2 _worldDimensions = new Vector2(1920, 1080);
@@ -45,17 +45,17 @@ public partial class CityScheme : Node2D
         DrawCircle(UserPosition, 10, Colors.LightGreen);
     }
 
-    public List<List<Vector2>> GetMainRoads()
+    private List<List<Vector2>> GetMainRoads()
     {
         return _mainStreamlines.AllStreamlinesSimple;
     }
     
-    public List<List<Vector2>> GetMajorRoads()
+    private List<List<Vector2>> GetMajorRoads()
     {
         return _majorStreamlines.AllStreamlinesSimple;
     }
     
-    public List<List<Vector2>> GetMinorRoads()
+    private List<List<Vector2>> GetMinorRoads()
     {
         return _minorStreamlines.AllStreamlinesSimple;
     }
