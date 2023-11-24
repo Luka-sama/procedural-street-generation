@@ -28,19 +28,7 @@ public partial class Main : Node3D
 	// Called every frame. 'delta' is the elapsed time since the previous frame.
 	public override void _Input(InputEvent e)
 	{
-		if (e.IsActionPressed("debug_none"))
-		{
-			_roads.SetDebugType(DebugType.None);
-			_roads.GenerateModel();
-		} else if (e.IsActionPressed("debug_highlight_roads"))
-		{
-			_roads.SetDebugType(DebugType.HighlightRoads);
-			_roads.GenerateModel();
-		} else if (e.IsActionPressed("debug_highlight_triangles"))
-		{
-			_roads.SetDebugType(DebugType.HighlightTriangles);
-			_roads.GenerateModel();
-		} else if (e.IsActionPressed("toggle_city_scheme_visibility"))
+		if (e.IsActionPressed("toggle_city_scheme_visibility"))
 		{
 			_cityScheme.Visible = !_cityScheme.Visible;
 		} else if (e.IsActionPressed("toggle_tensor_field"))

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Godot;
 
 public partial class CityScheme : Node2D
@@ -17,26 +16,20 @@ public partial class CityScheme : Node2D
     private StreamlineGenerator _minorStreamlines;
     private bool _end;
     private Graph _graph;
+    private ModelGenerator _modelGenerator;
 
     public override void _Ready()
     {
+        _modelGenerator = GetNode<ModelGenerator>("%Roads");
         GenerateTensorField();
-        StartCreatingStreamlines();
+        GenerateStreamlines();
     }
 
     public override void _Process(double delta)
     {
         if (_end) return;
         
-        for (int i = 0; i < 5 && !_end; i++) {
-            if (!_mainStreamlines.Update() && !_majorStreamlines.Update() && !_minorStreamlines.Update())
-            {
-                _end = true;
-                GD.Print("End of generation");
-                _graph = Graph.CreateFromStreamlines(GetMajorRoads());
-                QueueRedraw();
-            }
-        }
+        
     }
 
     public override void _Draw()
@@ -86,6 +79,8 @@ public partial class CityScheme : Node2D
 
     private void GenerateTensorField()
     {
+        var begin = Time.GetTicksMsec();
+        
         var noiseParams = new NoiseParams
         {
             GlobalNoise = false,
@@ -96,7 +91,7 @@ public partial class CityScheme : Node2D
         };
 
         _tensorField = new(noiseParams);
-        for (int i = 0; i < 10; i++)
+        for (var i = 0; i < 10; i++)
         {
             var centre = new Vector2((float)GD.RandRange(0, _worldDimensions.X - 1), _worldDimensions.Y / (i + 1));
             var size = GD.RandRange(_worldDimensions.X / 10, _worldDimensions.X / 4);
@@ -111,10 +106,14 @@ public partial class CityScheme : Node2D
                 _tensorField.AddRadial(centre, size, decay);
             }
         }
+        
+        GD.Print("Tensor field generated in ", (Time.GetTicksMsec() - begin), " ms");
     }
 
-    private void StartCreatingStreamlines()
+    private void GenerateStreamlines()
     {
+        var begin = Time.GetTicksMsec();
+        
         var parameters = new StreamlineParams
         {
             Dsep = 400,
@@ -144,6 +143,13 @@ public partial class CityScheme : Node2D
         parameters.DLookahead = 40;
         _minorStreamlines = new StreamlineGenerator(integrator, _origin, _worldDimensions, parameters);
         _minorStreamlines.StartCreatingStreamlines();
+
+        while (_majorStreamlines.Update()) {}
+        GD.Print("Streamlines generated in ", (Time.GetTicksMsec() - begin), " ms");
+        
+        _graph = Graph.CreateFromStreamlines(GetMajorRoads());
+        _modelGenerator.Generate(_graph);
+        QueueRedraw();
     }
 
     private void DrawRoads()
@@ -190,7 +196,7 @@ public partial class CityScheme : Node2D
     {
         var color = Colors.Red;
         
-        List<Vector2> tensorPoints = GetCrossLocations();
+        var tensorPoints = GetCrossLocations();
         foreach (var p in tensorPoints)
         {
             var t = _tensorField.SamplePoint(p);

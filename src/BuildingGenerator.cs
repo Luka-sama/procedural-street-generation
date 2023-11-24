@@ -7,12 +7,20 @@ public partial class BuildingGenerator : Node
 {
 	public static List<Tuple<Vector3I, Vector3I>> GenerateInfo(Graph graph)
 	{
+		var begin = Time.GetTicksMsec();
+		
 		var polygons = GeneratePolygons(graph);
+		
+		GD.Print("Lots found in ", (Time.GetTicksMsec() - begin), " ms");
+		begin = Time.GetTicksMsec();
+		
 		var buildings = new List<Tuple<Vector3I, Vector3I>>();
 		foreach (var polygon in polygons)
 		{
 			buildings.AddRange(GenerateBuildings(polygon));
 		}
+		
+		GD.Print("Buildings generated in ", (Time.GetTicksMsec() - begin), " ms");
 		return buildings;
 	}
 
@@ -145,21 +153,17 @@ public partial class BuildingGenerator : Node
 
 	private static bool IsInsideOfPolygon(Tuple<Vector3I, Vector3I> building, List<Vector2I> polygon)
 	{
-		var position = building.Item1;
+		var pos = building.Item1;
 		var size = building.Item2;
 		var p = polygon.Select(v => (Vector2)v).ToArray();
-		for (var x = position.X; x <= position.X + size.X; x++)
+		var pointsToCheck = new List<Vector2I>
 		{
-			for (var z = position.Z; z <= position.Z + size.Z; z++)
-			{
-				if (!Geometry2D.IsPointInPolygon(new Vector2(x, z), p))
-				{
-					return false;
-				}
-			}
-		}
+			new(pos.X, pos.Z), new(pos.X + size.X / 2, pos.Z), new(pos.X + size.X, pos.Z),
+			new(pos.X, pos.Z + size.Z / 2), new(pos.X + size.X, pos.Z + size.Z / 2),
+			new(pos.X, pos.Z + size.Z), new(pos.X + size.X / 2, pos.Z + size.Z), new(pos.X + size.X, pos.Z + size.Z),
+		};
 
-		return true;
+		return pointsToCheck.All(pointToCheck => Geometry2D.IsPointInPolygon(pointToCheck, p));
 	}
 
 	private static bool IsBuildingCorrect(Tuple<Vector3I, Vector3I> building, List<Vector2I> polygon, List<Tuple<Vector3I, Vector3I>> buildings)

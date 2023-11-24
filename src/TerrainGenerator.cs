@@ -5,10 +5,14 @@ using Godot;
 
 public partial class TerrainGenerator : Node
 {
-	private static float _heightScale = 60f;
-	
+	private const float _heightScale = 60f;
+
 	public void Generate(Graph graph, List<Tuple<Vector3I, Vector3I>> buildings)
 	{
+		var controlMap = GenerateControlMap(graph);
+		var heightMap = GenerateHeightMap(controlMap, buildings);
+		var begin = Time.GetTicksMsec();
+		
 		var terrainAsVariant = ClassDB.Instantiate("Terrain3D");
 		var terrain = terrainAsVariant.AsGodotObject();
 		var terrainAsNode = terrainAsVariant.As<Node>();
@@ -26,26 +30,24 @@ public partial class TerrainGenerator : Node
 		storage.Call("add_region", new Vector3(1024, 0, -1024));
 		storage.Call("add_region", new Vector3(-2048, 0, -2048));*/
 		
-		var controlMap = GenerateControlMap(graph);
-		var heightMap = GenerateHeightMap(controlMap, buildings);
-		controlMap.SavePng("control_map.png");
-		heightMap.SavePng("raw_height_map.png");
+		//controlMap.SavePng("control_map.png");
+		//heightMap.SavePng("raw_height_map.png");
 		storage.Call("import_images", new[] {heightMap, controlMap, null}, Vector3.Zero, 0f, _heightScale);
 		
-		terrain.Call("set_show_debug_collision", true);
+		//terrain.Call("set_show_debug_collision", true);
 		terrain.Call("set_collision_enabled", true);
 
-		var rbmapRid = storage.Call("get_region_blend_map").AsRid();
+		/*var rbmapRid = storage.Call("get_region_blend_map").AsRid();
 		var rbmapImg = RenderingServer.Texture2DGet(rbmapRid);
-		GetNode<TextureRect>("UI/TextureRect").Texture = ImageTexture.CreateFromImage(rbmapImg);
+		GetNode<TextureRect>("UI/TextureRect").Texture = ImageTexture.CreateFromImage(rbmapImg);*/
 		
 		/*var terrainShader = GD.Load("res://src/terrain.gdshader");
 		storage.Set("shader_override_enabled", true);
 		GD.Print(storage.Call("get_shader_override").AsGodotObject().Call("get_code"));
-		storage.Set("shader_override", terrainShader);*/
-		var shape = terrainAsNode.GetChild(0).GetChild<CollisionShape3D>(0);
+		storage.Set("shader_override", terrainShader);
+		var shape = terrainAsNode.GetChild(0).GetChild<CollisionShape3D>(0);*/
 		//shape.Rotation = Vector3.Zero;
-		var shader = GetNode<MeshInstance3D>("%Roads").MaterialOverride as ShaderMaterial;
+		/*var shader = GetNode<MeshInstance3D>("%Roads").MaterialOverride as ShaderMaterial;
 		var heightMapData = (shape.Shape as HeightMapShape3D).MapData;
 		var byteArray = new byte[heightMapData.Length * sizeof(float)];
 		Buffer.BlockCopy(heightMapData, 0, byteArray, 0, byteArray.Length);
@@ -64,11 +66,14 @@ public partial class TerrainGenerator : Node
 		}
 		png.SavePng("height_map.png");
 		
-		shader.SetShaderParameter("height_map", ImageTexture.CreateFromImage(heightImg));
+		shader.SetShaderParameter("height_map", ImageTexture.CreateFromImage(heightImg));*/
+		GD.Print("Terrain generated in ", (Time.GetTicksMsec() - begin), " ms");
 	}
 
 	private static Image GenerateControlMap(Graph graph)
 	{
+		var begin = Time.GetTicksMsec();
+		
 		const int width = 1024, height = 1024;
 		var img = Image.Create(width, height, false, Image.Format.Rgb8);
 		// black - terrain, white - roads
@@ -101,11 +106,14 @@ public partial class TerrainGenerator : Node
 			}
 		}
 
+		GD.Print("Control map generated in ", (Time.GetTicksMsec() - begin), " ms");
 		return img;
 	}
 
 	private static Image GenerateHeightMap(Image controlMap, List<Tuple<Vector3I, Vector3I>> buildings)
 	{
+		var begin = Time.GetTicksMsec();
+		
 		var noise = new FastNoiseLite();
 		noise.Seed = (int)GD.Randi();
 		noise.Frequency = 0.001f;
@@ -113,8 +121,7 @@ public partial class TerrainGenerator : Node
 		var noiseImg = noise.GetImage(width, height);
 		var heightMap = (Image)noiseImg.Duplicate();
 		var filterSize = 30;
-		var begin = Time.GetTicksMsec();
-		
+
 		var heightMapSat = GenerateSummedAreaTable(heightMap);
 		var controlMapSat = GenerateSummedAreaTable(controlMap);
 		for (var y = 0; y < height; y++)
@@ -187,8 +194,7 @@ public partial class TerrainGenerator : Node
 			}
 		}
 
-		GD.Print("height_map=", Time.GetTicksMsec() - begin);
-
+		GD.Print("Height map generated in ", (Time.GetTicksMsec() - begin), " ms");
 		return heightMap;
 	}
 

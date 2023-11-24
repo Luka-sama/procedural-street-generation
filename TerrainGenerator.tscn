@@ -7,4 +7,3 @@
 script = ExtResource("1_ch6of")
 
 [node name="UI" parent="." instance=ExtResource("4_x5ge4")]
-visible = false

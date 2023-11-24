@@ -47,7 +47,7 @@ public class Graph
 
     public static Graph CreateFromStreamlines(List<List<Vector2>> streamlines, bool deleteDangling = false)
     {
-        GD.Print("Begin graph generating...");
+        var begin = Time.GetTicksMsec();
         Graph graph = new();
         List<List<Edge>> unprocessedEdges = new();
         var (minPoints, maxPoints) = GetStreamlinesBounding(streamlines);
@@ -84,6 +84,7 @@ public class Graph
 
         // Sort for correct drawing
         graph.Edges = graph.Edges.OrderBy(edge => edge.RoadNum).ToList();
+        GD.Print("Graph generated in ", (Time.GetTicksMsec() - begin), " ms");
         return graph;
     }
 
@@ -220,8 +221,15 @@ public class Graph
         var dividedEdges1 = DivideEdge(edge1, intersection, streamlineEdges1);
         var dividedEdges2 = DivideEdge(edge2, intersection, streamlineEdges2);
 
-        foreach (var edge in dividedEdges1) ProcessEdge(unprocessedEdges, edge, minPoints, maxPoints, streamlineEdges1);
-        foreach (var edge in dividedEdges2) ProcessEdge(unprocessedEdges, edge, minPoints, maxPoints, streamlineEdges2);
+        if (dividedEdges1.Count > 1)
+        {
+            foreach (var edge in dividedEdges1) ProcessEdge(unprocessedEdges, edge, minPoints, maxPoints, streamlineEdges1);
+            foreach (var edge in dividedEdges2) ProcessEdge(unprocessedEdges, edge, minPoints, maxPoints, streamlineEdges2);
+        } else
+        {
+            foreach (var edge in dividedEdges2) ProcessEdge(unprocessedEdges, edge, minPoints, maxPoints, streamlineEdges2);
+            foreach (var edge in dividedEdges1) ProcessEdge(unprocessedEdges, edge, minPoints, maxPoints, streamlineEdges1);
+        }
     }
 
     private static List<Edge> DivideEdge(Edge edge, Vertex intersection, List<Edge> streamlineEdges)
