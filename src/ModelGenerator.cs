@@ -1,3 +1,4 @@
+using System;
 using Godot;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,20 +12,29 @@ public enum DebugType
 
 public partial class ModelGenerator : MeshInstance3D
 {
-	public float ModelScale => 0.5f;
-	private CityScheme _cityScheme;
+	public float ModelScale => 1f;
+	private Graph _graph;
 	private RandomNumberGenerator _rng = new();
 	private ulong _savedState;
-	private SurfaceTool _st = new();
+	//private SurfaceTool _st = new();
 	private DebugType _debugType = DebugType.None;
+	private List<Tuple<Vector3I, Vector3I>> _buildings;
+	private TerrainGenerator _terrainGenerator;
+	private BuildingGenerator _buildingGenerator;
 
 	public override async void _Ready()
 	{
 		_savedState = _rng.State;
-		_cityScheme = GetNode("../CityScheme") as CityScheme;
+		_terrainGenerator = GetNode<TerrainGenerator>("%TerrainGenerator");
+		_buildingGenerator = GetNode<BuildingGenerator>("%BuildingGenerator");
 
 		await ToSignal(GetTree().CreateTimer(5), "timeout");
+		var cityScheme = GetNode<CityScheme>("%CityScheme");
+		_graph = cityScheme.GetGraph();
+		GenerateBuildingInfo();
 		GenerateModel();
+		GenerateTerrain();
+		GenerateBuildings();
 	}
 
 	public void SetDebugType(DebugType debugType)
@@ -32,66 +42,86 @@ public partial class ModelGenerator : MeshInstance3D
 		_debugType = debugType;
 	}
 
+	private void GenerateTerrain()
+	{
+		_terrainGenerator.Generate(_graph, _buildings);
+	}
+
+	private void GenerateBuildingInfo()
+	{
+		_buildings = BuildingGenerator.GenerateInfo(_graph);
+	}
+	
+	private void GenerateBuildings()
+	{
+		_buildingGenerator.GenerateModels(_buildings);
+	}
+
 	public void GenerateModel()
 	{
-		var graph = _cityScheme.GetGraph();
 		_rng.State = _savedState;
 		
-		_st.Begin(Mesh.PrimitiveType.Triangles);
-		_st.SetUV(new Vector2(0, 0));
+		//_st.Begin(Mesh.PrimitiveType.Triangles);
 
-		List<Color> roadColors = new();
+		/*List<Color> roadColors = new();
 		if (_debugType == DebugType.HighlightRoads)
 		{
-			for (int i = 0; i < graph.RoadCount; i++)
+			for (int i = 0; i < _graph.RoadCount; i++)
 			{
 				roadColors.Add(new Color(_rng.Randf(), _rng.Randf(), _rng.Randf()));
 			}
-		}
+		}*/
 		
-		foreach (var edge in graph.Edges)
+		foreach (var edge in _graph.Edges)
 		{
 			CalcEdgePolygon(edge, 15);
 		}
 
-		if (_debugType == DebugType.None) _st.SetColor(Colors.Gray);
-		foreach (var edge in graph.Edges)
+		/*if (_debugType == DebugType.None) _st.SetColor(Colors.Gray);
+		foreach (var edge in _graph.Edges)
 		{
 			if (_debugType == DebugType.HighlightRoads) _st.SetColor(roadColors[edge.RoadNum]);
 			ClipEdgePolygon(edge);
 			DrawEdgePolygon(edge);
-		}
+		}*/
 
-		_st.SetColor(Colors.Lime);
+		/*_st.SetColor(Colors.Lime);
 		var savedDebugType = _debugType;
-		foreach (var vertex in graph.Vertices)
+		foreach (var vertex in _graph.Vertices)
 		{
 			DrawTriangle(vertex.Point + new Vector2(-2, -2), vertex.Point, vertex.Point + new Vector2(-2, 2));
 		}
-		_debugType = savedDebugType;
+		_debugType = savedDebugType;*/
 
-		_st.Index();
+		/*_st.Index();
 		_st.GenerateNormals();
 		_st.GenerateTangents();
 		var mesh = _st.Commit();
+		Mesh = mesh;*/
 		Scale = ModelScale * Vector3.One;
-		Mesh = mesh;
 
-		var material = new StandardMaterial3D();
-		material.VertexColorUseAsAlbedo = true;
-		MaterialOverride = material;
+		//var material = new StandardMaterial3D();
+		//material.VertexColorUseAsAlbedo = true;
+		/*var material = new ShaderMaterial();
+		material.Shader = GD.Load<Shader>("res://src/roads_to_terrain.gdshader");
+		var noise = new FastNoiseLite();
+		noise.Seed = 123;
+		noise.Frequency = 0.001f;
+		var img = noise.GetImage(1024, 3072);
+		material.SetShaderParameter("region_blend_map", img);*/
+		//MaterialOverride = material;
 	}
 
-	private void CalcEdgePolygon(Edge edge, float roadWidth)
+	private void CalcEdgePolygon(Edge edge, int roadWidth)
 	{
 		if (edge.Polygons.Count > 0) return;
 		edge.Width = roadWidth;
 
 		// Calc original rectangle
-		Vector2 from = edge.From.Point, to = edge.To.Point;
-		Vector2 dir = (to - from).Normalized();
-		Vector2 perpDir = new Vector2(dir.Y, -dir.X);
-		Vector2 offset = perpDir * roadWidth / 2;
+		Vector2I from = edge.From.Point, to = edge.To.Point;
+		var dir = to - from;
+		var perpDir = new Vector2I(Mathf.FloorToInt(dir.Y / dir.Length()), Mathf.FloorToInt(-dir.X / dir.Length()));
+		var offset = perpDir * roadWidth / 2;
 		edge.Polygons.Add(new()
 		{
 			from - offset, // FromLeft
@@ -104,7 +134,7 @@ public partial class ModelGenerator : MeshInstance3D
 		TriangleConnection(edge, false);
 	}
 	
-	private void ClipEdgePolygon(Edge edge)
+	/*private void ClipEdgePolygon(Edge edge)
 	{
 		if (edge.IsClipped) return;
 		ClipPolygons(edge, true);
@@ -116,31 +146,49 @@ public partial class ModelGenerator : MeshInstance3D
 	private void ClipPolygons(Edge edge, bool isFrom)
 	{
 		Vertex vertex = (isFrom ? edge.From : edge.To);
+		List<Edge> edgesToCheck = new();
 		foreach (var edge2 in vertex.Edges)
 		{
-			if (edge == edge2 || edge2.Polygons.Count == 0 || edge.RoadNum == edge2.RoadNum || !edge2.IsClipped) continue;
+			if (edge == edge2 || edge2.Polygons.Count == 0 || edge.RoadNum == edge2.RoadNum ||
+			    edgesToCheck.Contains(edge2) || !edge2.IsClipped) continue;
+			edgesToCheck.Add(edge2);
+			
+			var vertex2 = (edge2.From == vertex ? edge2.To : edge2.From);
+			foreach (var edge3 in vertex2.Edges)
+			{
+				if (edge == edge3 || edge3.Polygons.Count == 0 || edge.RoadNum == edge3.RoadNum ||
+				    edgesToCheck.Contains(edge3) || !edge3.IsClipped) continue;
+				edgesToCheck.Add(edge3);
+			}
+		}
+
+		foreach (var edge2 in edgesToCheck)
+		{
 			edge.Polygons = ClipMultiplePolygons(edge.Polygons, edge2.Polygons);
 		}
 	}
 
-	private List<List<Vector2>> ClipMultiplePolygons(List<List<Vector2>> polygonsA, List<List<Vector2>> polygonsB)
+	private List<List<Vector2I>> ClipMultiplePolygons(List<List<Vector2I>> polygonsA, List<List<Vector2I>> polygonsB)
 	{
 		foreach (var polygonB in polygonsB)
 		{
-			List<List<Vector2>> result = new();
+			List<List<Vector2I>> result = new();
 			foreach (var polygonA in polygonsA)
 			{
-				var polygons = Geometry2D.ClipPolygons(polygonA.ToArray(), polygonB.ToArray());
+				var polygons = Geometry2D.ClipPolygons(
+					polygonA.Select(v => (Vector2)v).ToArray(),
+					polygonB.Select(v => (Vector2)v).ToArray()
+				);
 				foreach (var polygon in polygons)
 				{
-					if (!Geometry2D.IsPolygonClockwise(polygon)) result.Add(polygon.ToList());
+					if (!Geometry2D.IsPolygonClockwise(polygon)) result.Add(polygon.Select(v => (Vector2I)v).ToList());
 				}
 			}
 			polygonsA = result;
 		}
 
 		return polygonsA;
-	}
+	}*/
 
 	private void TriangleConnection(Edge edge, bool isFrom)
 	{
@@ -183,27 +231,15 @@ public partial class ModelGenerator : MeshInstance3D
 				edge.Polygons[0][3] = left;
 				edge.Polygons[0][2] = right;
 			}
-			
-			/*var left = (edge2.From == vertex ? edge2.FromLeft : edge2.ToLeft);
-			var right = (edge2.From == vertex ? edge2.FromRight : edge2.ToRight);
-			if (isFrom)
-			{
-				edge.FromLeft = left;
-				edge.FromRight = right;
-			} else
-			{
-				edge.ToLeft = left;
-				edge.ToRight = right;
-			}*/
 		}
 	}
 
-	private void DrawEdgePolygon(Edge edge)
+	/*private void DrawEdgePolygon(Edge edge)
 	{
 		foreach (var p in edge.Polygons)
 		{
-			var indexes = Geometry2D.TriangulatePolygon(p.ToArray());
-			for (int i = 0; i < indexes.Length; i += 3)
+			var indexes = Geometry2D.TriangulatePolygon(p.Select(v => (Vector2)v).ToArray());
+			for (var i = 0; i < indexes.Length; i += 3)
 			{
 				DrawTriangle(p[indexes[i]], p[indexes[i + 1]], p[indexes[i + 2]]);
 			}
@@ -214,12 +250,16 @@ public partial class ModelGenerator : MeshInstance3D
 	{
 		// Ensure that vertices are CCW
 		if ((b - a).Cross(c - a) < 0) (a, b) = (b, a);
-		
+
+		Vector2 size = new Vector2(1025, 1025);
 		if (_debugType == DebugType.HighlightTriangles) _st.SetColor(Colors.Red);
+		_st.SetUV((a / size).Clamp(Vector2.Zero, Vector2.One));
 		_st.AddVertex(new Vector3(a.X, 0, a.Y));
 		if (_debugType == DebugType.HighlightTriangles) _st.SetColor(Colors.Green);
+		_st.SetUV((b / size).Clamp(Vector2.Zero, Vector2.One));
 		_st.AddVertex(new Vector3(b.X, 0, b.Y));
 		if (_debugType == DebugType.HighlightTriangles) _st.SetColor(Colors.Blue);
+		_st.SetUV((c / size).Clamp(Vector2.Zero, Vector2.One));
 		_st.AddVertex(new Vector3(c.X, 0, c.Y));
-	}
+	}*/
 }

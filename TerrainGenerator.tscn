@@ -1,0 +1,10 @@
+[gd_scene load_steps=3 format=3 uid="uid://we1g70w6gfna"]
+
+[ext_resource type="Script" path="res://src/TerrainGenerator.cs" id="1_ch6of"]
+[ext_resource type="PackedScene" path="res://UI.tscn" id="4_x5ge4"]
+
+[node name="TerrainGenerator" type="Node"]
+script = ExtResource("1_ch6of")
+
+[node name="UI" parent="." instance=ExtResource("4_x5ge4")]
+visible = false

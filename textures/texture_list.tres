@@ -1,0 +1,18 @@
+[gd_resource type="Terrain3DTextureList" load_steps=7 format=3 uid="uid://ddjgcu6eo1gw2"]
+
+[ext_resource type="Texture2D" path="res://textures/ground037_alb_ht.dds" id="1_tpsol"]
+[ext_resource type="Texture2D" path="res://textures/ground037_nrm_rgh.dds" id="2_2x76a"]
+[ext_resource type="Texture2D" path="res://textures/rock028_alb_ht.dds" id="3_yjogh"]
+[ext_resource type="Texture2D" path="res://textures/rock028_nrm_rgh.dds" id="4_63j5y"]
+
+[sub_resource type="Terrain3DTexture" id="Terrain3DTexture_56fwf"]
+albedo_texture = ExtResource("1_tpsol")
+normal_texture = ExtResource("2_2x76a")
+
+[sub_resource type="Terrain3DTexture" id="Terrain3DTexture_x74kb"]
+texture_id = 1
+albedo_texture = ExtResource("3_yjogh")
+normal_texture = ExtResource("4_63j5y")
+
+[resource]
+textures = Array[Terrain3DTexture]([SubResource("Terrain3DTexture_56fwf"), SubResource("Terrain3DTexture_x74kb")])

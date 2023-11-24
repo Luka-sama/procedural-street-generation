@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 
 public partial class CityScheme : Node2D
 {
     public Vector2 UserPosition { get; set; } = Vector2.Zero;
     public bool ShouldDrawTensorField { get; set; }
+    public bool WithGraph { get; set; }
     private const float TensorLineDiameter = 20;
     private Vector2 _origin = Vector2.Zero;
     private Vector2 _worldDimensions = new Vector2(1920, 1080);
@@ -52,6 +54,23 @@ public partial class CityScheme : Node2D
     
     private List<List<Vector2>> GetMajorRoads()
     {
+        /*return new()
+        {
+            new() {new(2, 2), new(200, 200), new(400, 500)},
+            new() {new(0, 350), new(350, 350)},
+            new() {new(2, 500), new(200, 400), new(500, 2)},
+            new() {new(70, 420), new(300, 400)}
+        };*/
+        /*foreach (var streamline in _majorStreamlines.AllStreamlinesSimple)
+        {
+            var str = "new() {";
+            foreach (var point in streamline)
+            {
+                str += "new(" + point.X.ToString().Replace(",", ".") + "f, " + point.Y.ToString().Replace(",", ".") + "f), ";
+            }
+            str = str.Substr(0, str.Length - 2) + "},";
+            GD.Print(str);
+        }*/
         return _majorStreamlines.AllStreamlinesSimple;
     }
     
@@ -96,7 +115,7 @@ public partial class CityScheme : Node2D
 
     private void StartCreatingStreamlines()
     {
-        StreamlineParams parameters = new StreamlineParams
+        var parameters = new StreamlineParams
         {
             Dsep = 400,
             Dtest = 200,
@@ -133,21 +152,34 @@ public partial class CityScheme : Node2D
         {
             return;
         }
-        Color polylineColor = Color.Color8(255, 255, 255, 50);
-        Color pointColor = Colors.Aqua;
+        var polylineColor = Color.Color8(255, 255, 255, 50);
+        var pointColor = Colors.Aqua;
+        
+        /*var buildingGenerator = GetNode<BuildingGenerator>("%BuildingGenerator");
+        var polygons = buildingGenerator.Generate(_graph);
+        foreach (var polygon in polygons)
+        {
+            var color = new Color(GD.Randf(), GD.Randf(), GD.Randf());
+            DrawColoredPolygon(polygon.Select(v => (Vector2)v).ToArray(), color);
+        }*/
         
         /*foreach (var road in GetMainRoads())
         {
             DrawPolylineWithPoints(road.ToArray(), polylineColor, pointColor, 8);
         }*/
-        foreach (var edge in _graph.Edges)
+        if (WithGraph)
         {
-            DrawLineWithPoints(edge.From.Point, edge.To.Point, polylineColor, pointColor, 4);
+            foreach (var edge in _graph.Edges)
+            {
+                DrawLineWithPoints(edge.From.Point, edge.To.Point, polylineColor, pointColor, 4);
+            }
+        } else
+        {
+            foreach (var road in GetMajorRoads())
+            {
+                DrawPolylineWithPoints(road.ToArray(), polylineColor, pointColor, 4);
+            }
         }
-        /*foreach (var road in GetMajorRoads())
-        {
-            DrawPolylineWithPoints(road.ToArray(), polylineColor, pointColor, 4);
-        }*/
         /*foreach (var road in GetMinorRoads())
         {
             DrawPolylineWithPoints(road.ToArray(), polylineColor, pointColor, 2);
@@ -156,7 +188,7 @@ public partial class CityScheme : Node2D
 
     private void DrawTensorField()
     {
-        Color color = Color.Color8(255, 0, 0);
+        var color = Colors.Red;
         
         List<Vector2> tensorPoints = GetCrossLocations();
         foreach (var p in tensorPoints)
@@ -187,17 +219,17 @@ public partial class CityScheme : Node2D
     {
         // Gets grid of points for vector field vis in world space
         
-        float zoom = 1;
-        float diameter = TensorLineDiameter / zoom;
-        int nHor = (int)Math.Ceiling(_worldDimensions.X / diameter) + 1; // Prevent pop-in
-        int nVer = (int)Math.Ceiling(_worldDimensions.Y / diameter) + 1;
-        float originX = diameter * (float)Math.Floor(_origin.X / diameter);
-        float originY = diameter * (float)Math.Floor(_origin.Y / diameter);
+        var zoom = 1f;
+        var diameter = TensorLineDiameter / zoom;
+        var nHor = Mathf.CeilToInt(_worldDimensions.X / diameter) + 1; // Prevent pop-in
+        var nVer = Mathf.CeilToInt(_worldDimensions.Y / diameter) + 1;
+        var originX = diameter * (float)Math.Floor(_origin.X / diameter);
+        var originY = diameter * (float)Math.Floor(_origin.Y / diameter);
 
-        List<Vector2> outList = new List<Vector2>();
-        for (int x = 0; x <= nHor; x++)
+        var outList = new List<Vector2>();
+        for (var x = 0; x <= nHor; x++)
         {
-            for (int y = 0; y <= nVer; y++)
+            for (var y = 0; y <= nVer; y++)
             {
                 outList.Add(new Vector2(originX + (x * diameter), originY + (y * diameter)));
             }
@@ -208,10 +240,10 @@ public partial class CityScheme : Node2D
     
     private Vector2[] GetTensorLine(Vector2 point, Vector2 tensorV)
     {
-        Vector2 transformedPoint = point; //domainController.worldToScreen(point);
-        Vector2 diff = tensorV * (TensorLineDiameter / 2);  // Assumes normalised
-        Vector2 start = transformedPoint - diff;
-        Vector2 end = transformedPoint + diff;
+        var transformedPoint = point; //domainController.worldToScreen(point);
+        var diff = tensorV * (TensorLineDiameter / 2);  // Assumes normalised
+        var start = transformedPoint - diff;
+        var end = transformedPoint + diff;
         return new[] {start, end};
     }
 }

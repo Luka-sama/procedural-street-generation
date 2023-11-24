@@ -1,29 +1,43 @@
-[gd_scene load_steps=6 format=3 uid="uid://bgmuloqqbx6et"]
+[gd_scene load_steps=10 format=3 uid="uid://bgmuloqqbx6et"]
 
 [ext_resource type="Script" path="res://src/Main.cs" id="1_7ia0q"]
 [ext_resource type="Script" path="res://src/ModelGenerator.cs" id="1_rmdud"]
 [ext_resource type="Script" path="res://src/CityScheme.cs" id="2_3jbl0"]
-[ext_resource type="Script" path="res://src/Camera.cs" id="3_168wt"]
+[ext_resource type="Shader" path="res://src/roads_to_terrain.gdshader" id="4_scdv5"]
+[ext_resource type="PackedScene" path="res://World.tscn" id="5_ix1ht"]
+[ext_resource type="PackedScene" uid="uid://we1g70w6gfna" path="res://TerrainGenerator.tscn" id="6_8d630"]
+[ext_resource type="PackedScene" uid="uid://vetl0mfl53ir" path="res://Player.tscn" id="7_hm24g"]
+[ext_resource type="Script" path="res://src/BuildingGenerator.cs" id="8_k33er"]
 
-[sub_resource type="Environment" id="Environment_s5too"]
-ambient_light_color = Color(1, 1, 1, 1)
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_hciei"]
+render_priority = 0
+shader = ExtResource("4_scdv5")
 
 [node name="Main" type="Node3D"]
 script = ExtResource("1_7ia0q")
 
+[node name="World" parent="." instance=ExtResource("5_ix1ht")]
+
 [node name="CityScheme" type="Node2D" parent="."]
+unique_name_in_owner = true
 visible = false
 script = ExtResource("2_3jbl0")
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
-environment = SubResource("Environment_s5too")
-
-[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 0.895222, 0.44562, 0, -0.44562, 0.895222, 0, 1.46228, 0)
-
 [node name="Roads" type="MeshInstance3D" parent="."]
+unique_name_in_owner = true
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -10, 0)
+material_override = SubResource("ShaderMaterial_hciei")
+cast_shadow = 0
 script = ExtResource("1_rmdud")
 
-[node name="Camera3D" type="Camera3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.28622, 1.03778, 3.88209)
-script = ExtResource("3_168wt")
+[node name="TerrainGenerator" parent="." instance=ExtResource("6_8d630")]
+unique_name_in_owner = true
+
+[node name="Player" parent="." instance=ExtResource("7_hm24g")]
+unique_name_in_owner = true
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 512, 60, 512)
+gravity_enabled = false
+
+[node name="BuildingGenerator" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("8_k33er")
