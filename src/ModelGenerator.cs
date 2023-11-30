@@ -30,9 +30,13 @@ public partial class ModelGenerator : Node
 
 	private void GenerateModel()
 	{
+		var roadWidths = new List<int>();
+		for (var i = 0; i < _graph.RoadCount; i++) {
+			roadWidths.Add(GD.RandRange(20, 30));
+		}
 		foreach (var edge in _graph.Edges)
 		{
-			CalcEdgePolygon(edge, GD.RandRange(20, 30));
+			CalcEdgePolygon(edge, roadWidths[edge.RoadNum]);
 		}
 	}
 

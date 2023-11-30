@@ -46,6 +46,7 @@ public class Graph
 {
     public List<Vertex> Vertices { get; } = new();
     public List<Edge> Edges { get; private set; } = new();
+    public int RoadCount { get; private set; }
 
     public static Graph CreateFromStreamlines(List<List<Vector2>> streamlines)
     {
@@ -72,6 +73,7 @@ public class Graph
 
             roadNum++;
         }
+        graph.RoadCount = roadNum;
         //unprocessedEdges = graph.SamplePoints(unprocessedEdges);
         
         foreach (var streamlineEdges in unprocessedEdges)

@@ -18,7 +18,6 @@ script = ExtResource("1_7ia0q")
 [node name="Player" parent="." instance=ExtResource("7_hm24g")]
 unique_name_in_owner = true
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 512, 60, 512)
-gravity_enabled = false
 
 [node name="UI" parent="." instance=ExtResource("4_jbhbp")]
 
