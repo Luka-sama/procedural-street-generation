@@ -1,7 +1,7 @@
 extends Control
 
 
-@onready var player: Node = $"../../Player"
+@onready var player: Node = $"../Player"
 
 
 func _init() -> void:
@@ -13,8 +13,9 @@ func _process(_delta) -> void:
 	$Label.text += "Move Speed: %.1f\n" % player.MOVE_SPEED if player else ""
 	$Label.text += "Position: %.1v\n" % player.global_position if player else ""
 	$Label.text += "Move: WASDEQ/Mouse\nMove speed: Wheel,+/-\nCamera View: V\n"
-	$Label.text += "Gravity toggle: G\nCollision toggle: C\n"
+	$Label.text += "Gravity toggle: G\nCollision toggle: M\n"
 	$Label.text += "Full screen: F11\nMouse toggle: Escape\nQuit: F8\n"
+	$Label.text += "Tensor field: F\nStreamlines: J\nGraph: C\n"
 
 
 func _unhandled_key_input(event: InputEvent) -> void:

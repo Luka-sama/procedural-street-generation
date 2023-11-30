@@ -8,10 +8,7 @@ public class Edge
     public Vertex To { get; }
     public int RoadNum { get; }
     
-    public List<List<Vector2I>> Polygons { get; set; } = new();
-
-    public bool IsClipped { get; set; }
-    public int Width { get; set; }
+    public List<Vector2I> Polygon { get; } = new();
 
     public Node3D Agent { get; set; }
     // true - from edge.From to edge.To; false - from edge.To to edge.From
@@ -49,24 +46,23 @@ public class Graph
 {
     public List<Vertex> Vertices { get; } = new();
     public List<Edge> Edges { get; private set; } = new();
-    public int RoadCount { get; private set; }
 
-    public static Graph CreateFromStreamlines(List<List<Vector2>> streamlines, bool deleteDangling = false)
+    public static Graph CreateFromStreamlines(List<List<Vector2>> streamlines)
     {
         var begin = Time.GetTicksMsec();
-        Graph graph = new();
-        List<List<Edge>> unprocessedEdges = new();
+        var graph = new Graph();
+        var unprocessedEdges = new List<List<Edge>>();
         var (minPoints, maxPoints) = GetStreamlinesBounding(streamlines);
 
-        int roadNum = 0;
+        var roadNum = 0;
         foreach (var streamline in streamlines)
         {
-            List<Edge> streamlineEdges = new();
+            var streamlineEdges = new List<Edge>();
             unprocessedEdges.Add(streamlineEdges);
             Vertex lastVertex = null;
             foreach (var point in streamline)
             {
-                Vertex vertex = graph.AddVertex(FloorVector(point));
+                var vertex = graph.AddVertex(FloorVector(point));
                 if (lastVertex != null && lastVertex != vertex)
                 {
                     streamlineEdges.Add(new(lastVertex, vertex, roadNum));
@@ -76,7 +72,6 @@ public class Graph
 
             roadNum++;
         }
-        graph.RoadCount = roadNum;
         //unprocessedEdges = graph.SamplePoints(unprocessedEdges);
         
         foreach (var streamlineEdges in unprocessedEdges)
@@ -99,25 +94,25 @@ public class Graph
         List<List<Edge>> result = new();
         foreach (var streamlineEdges in edges)
         {
-            List<Edge> tessellated = new();
+            List<Edge> sampled = new();
             foreach (var edge in streamlineEdges)
             {
                 Vector2 from = edge.From.Point, to = edge.To.Point;
                 var lerpSteps = (int) Mathf.Max(1, Mathf.Floor((to - from).LengthSquared() / (100 * 100)));
                 if (lerpSteps == 1)
                 {
-                    tessellated.Add(edge);
+                    sampled.Add(edge);
                 } else
                 {
                     for (var i = 0; i < lerpSteps; i++)
                     {
                         var newFrom = AddVertex(FloorVector(from.Lerp(to, (float)i / lerpSteps)));
                         var newTo = AddVertex(FloorVector(from.Lerp(to, (float)(i + 1)/lerpSteps)));
-                        tessellated.Add(new(newFrom, newTo, edge.RoadNum));
+                        sampled.Add(new(newFrom, newTo, edge.RoadNum));
                     }
                 }
             }
-            result.Add(tessellated);
+            result.Add(sampled);
         }
 
         return result;
@@ -187,16 +182,10 @@ public class Graph
             foreach (var edge2 in streamlineEdges2)
             {
                 Vector2I from2 = edge2.From.Point, to2 = edge2.To.Point;
-                //Vector2 dir = (to - from).Normalized(), dir2 = (to2 - from2).Normalized();
-                //Variant intersectionPoint = Geometry2D.SegmentIntersectsSegment(from - dir, to + dir,from2 - dir2, to2 + dir2);
                 var intersectionPoint = Geometry2D.SegmentIntersectsSegment(from, to,from2, to2);
                 if (intersectionPoint.VariantType == Variant.Type.Vector2)
                 {
                     var point = FloorVector((Vector2)intersectionPoint);
-                    /*var closest = Geometry2D.GetClosestPointToSegment(point, from, to);
-                    var closest2 = Geometry2D.GetClosestPointToSegment(point, from2, to2);
-                    if (!closest.IsEqualApprox(point)) point = closest;
-                    else if (!closest2.IsEqualApprox(point)) point = closest2;*/
                     if ((from != point && to != point) ||
                         (from2 != point && to2 != point)) {
                         DivideEdges(edge, edge2, point, unprocessedEdges,

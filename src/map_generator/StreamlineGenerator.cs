@@ -28,34 +28,25 @@ public struct StreamlineParams
 
 public class StreamlineGenerator
 {
+    public List<List<Vector2>> AllStreamlinesSimple { get; } = new();
+    
     private readonly bool _seedAtEndpoints = false;
-    //private readonly int _nearEdge = 3; // Sample near edge
 
-    private GridStorage _majorGrid;
-    private GridStorage _minorGrid;
+    private readonly GridStorage _majorGrid;
+    private readonly GridStorage _minorGrid;
     private StreamlineParams _paramsSq;
-
-    // How many samples to skip when checking streamline collision with itself
-    private readonly int _nStreamlineStep;
-    // How many samples to ignore backwards when checking streamline collision with itself
-    private readonly int _nStreamlineLookBack;
-    private readonly double _dcollideselfSq;
 
     private readonly List<Vector2> _candidateSeedsMajor = new();
     private readonly List<Vector2> _candidateSeedsMinor = new();
-
-    private bool _streamlinesDone = true;
-    private bool _lastStreamlineMajor = true;
 
     private readonly FieldIntegrator _integrator;
     private readonly Vector2 _origin;
     private readonly Vector2 _worldDimensions;
     private readonly StreamlineParams _parameters;
 
-    public List<List<Vector2>> AllStreamlines { get; } = new();
-    public List<List<Vector2>> StreamlinesMajor { get; } = new();
-    public List<List<Vector2>> StreamlinesMinor { get; } = new();
-    public List<List<Vector2>> AllStreamlinesSimple { get; } = new();
+    private readonly List<List<Vector2>> _allStreamlines = new();
+    private readonly List<List<Vector2>> _streamlinesMajor = new();
+    private readonly List<List<Vector2>> _streamlinesMinor = new();
 
     /**
      * Uses world-space coordinates
@@ -72,11 +63,6 @@ public class StreamlineGenerator
 
         // Enforce test < sep
         parameters.Dtest = Math.Min(parameters.Dtest, parameters.Dsep);
-        
-        // Needs to be less than circlejoin
-        _dcollideselfSq = Math.Pow(parameters.DCircleJoin / 2, 2);
-        _nStreamlineStep = (int)(parameters.DCircleJoin / parameters.Dstep);
-        _nStreamlineLookBack = 2 * _nStreamlineStep;
 
         _majorGrid = new GridStorage(worldDimensions, origin, parameters.Dsep);
         _minorGrid = new GridStorage(worldDimensions, origin, parameters.Dsep);
@@ -84,22 +70,11 @@ public class StreamlineGenerator
         SetParamsSq();
     }
     
-    public void ClearStreamlines() {
-        AllStreamlinesSimple.Clear();
-        StreamlinesMajor.Clear();
-        StreamlinesMinor.Clear();
-        AllStreamlines.Clear();
-    }
-    
-    /**
-     * Edits streamlines
-     */
     private void JoinDanglingStreamlines()
     {
-        // TODO do in update method
-        foreach (bool major in new[] { true, false })
+        foreach (var major in new[] { true, false })
         {
-            foreach (List<Vector2> streamline in Streamlines(major))
+            foreach (var streamline in Streamlines(major))
             {
                 // Ignore circles
                 if (streamline[0].Equals(streamline[^1]))
@@ -107,20 +82,20 @@ public class StreamlineGenerator
                     continue;
                 }
 
-                Vector2? newStart = GetBestNextPoint(streamline[0], streamline[4]);
+                var newStart = GetBestNextPoint(streamline[0], streamline[4]);
                 if (newStart != null)
                 {
-                    foreach (Vector2 p in PointsBetween(streamline[0], newStart.Value, _parameters.Dstep))
+                    foreach (var p in PointsBetween(streamline[0], newStart.Value, _parameters.Dstep))
                     {
                         streamline.Insert(0, p);
                         Grid(major).AddSample(p);
                     }
                 }
 
-                Vector2? newEnd = GetBestNextPoint(streamline[^1], streamline[^4]);
+                var newEnd = GetBestNextPoint(streamline[^1], streamline[^4]);
                 if (newEnd != null)
                 {
-                    foreach (Vector2 p in PointsBetween(streamline[^1], newEnd.Value, _parameters.Dstep))
+                    foreach (var p in PointsBetween(streamline[^1], newEnd.Value, _parameters.Dstep))
                     {
                         streamline.Add(p);
                         Grid(major).AddSample(p);
@@ -131,7 +106,7 @@ public class StreamlineGenerator
 
         // Reset simplified streamlines
         AllStreamlinesSimple.Clear();
-        foreach (List<Vector2> s in AllStreamlines)
+        foreach (var s in _allStreamlines)
         {
             AllStreamlinesSimple.Add(SimplifyStreamline(s));
         }
@@ -144,16 +119,16 @@ public class StreamlineGenerator
     private List<Vector2> PointsBetween(Vector2 v1, Vector2 v2, double dstep)
     {
         double d = v1.DistanceTo(v2);
-        int nPoints = (int)Math.Floor(d / dstep);
+        var nPoints = (int)Math.Floor(d / dstep);
         if (nPoints == 0)
             return new List<Vector2>();
 
-        Vector2 stepVector = v2 - v1;
+        var stepVector = v2 - v1;
 
-        List<Vector2> outList = new();
-        for (int i = 1; i <= nPoints; i++)
+        var outList = new List<Vector2>();
+        for (var i = 1; i <= nPoints; i++)
         {
-            Vector2 next = v1 + stepVector * (i / (float)nPoints);
+            var next = v1 + stepVector * (i / (float)nPoints);
             if (_integrator.Integrate(next, true).LengthSquared() > 0.001) // Test for degenerate point
             {
                 outList.Add(next);
@@ -172,16 +147,16 @@ public class StreamlineGenerator
      */
     private Vector2? GetBestNextPoint(Vector2 point, Vector2 previousPoint)
     {
-        List<Vector2> nearbyPoints = _majorGrid.GetNearbyPoints(point, _parameters.DLookahead);
+        var nearbyPoints = _majorGrid.GetNearbyPoints(point, _parameters.DLookahead);
         nearbyPoints.AddRange(_minorGrid.GetNearbyPoints(point, _parameters.DLookahead));
-        Vector2 direction = point - previousPoint;
+        var direction = point - previousPoint;
 
         Vector2? closestSample = null;
-        double closestDistance = double.PositiveInfinity;
+        var closestDistance = double.PositiveInfinity;
 
         foreach (Vector2 sample in nearbyPoints)
         {
-            if (!sample.Equals(point) && !sample.Equals(previousPoint))// && !streamline.Contains(sample)) {
+            if (!sample.Equals(point) && !sample.Equals(previousPoint))
             {
                 Vector2 differenceVector = sample - point;
                 if (differenceVector.Dot(direction) < 0)
@@ -209,10 +184,6 @@ public class StreamlineGenerator
             }
         }
 
-        // TODO is reimplement simplify-js to preserve intersection points
-        //  - this is the primary reason polygons aren't found
-        // If trying to find intersections in the simplified graph
-        // prevent ends getting pulled away from simplified lines
         if (closestSample != null)
         {
             closestSample += 4 * _parameters.SimplifyTolerance * direction.Normalized();
@@ -220,53 +191,11 @@ public class StreamlineGenerator
 
         return closestSample;
     }
-    
-    /**
-     * Assumes s has already generated
-     */
-    public void AddExistingStreamlines(StreamlineGenerator s)
-    {
-        _majorGrid.AddAll(s._majorGrid);
-        _minorGrid.AddAll(s._minorGrid);
-    }
 
-    public void SetGrid(StreamlineGenerator s)
-    {
-        _majorGrid = s._majorGrid;
-        _minorGrid = s._minorGrid;
-    }
-    
-    /**
-     * returns true if state updates
-     */
-    public bool Update()
-    {
-        if (!_streamlinesDone)
-        {
-            _lastStreamlineMajor = !_lastStreamlineMajor;
-            if (!CreateStreamline(_lastStreamlineMajor))
-            {
-                _streamlinesDone = true;
-                JoinDanglingStreamlines();
-            }
-            return true;
-        }
-
-        return false;
-    }
-
-    public void StartCreatingStreamlines()
-    {
-        _streamlinesDone = false;
-    }
-
-    /**
-     * All at once - will freeze if dsep small
-     */
+    /** All at once - will freeze if dsep small */
     public void CreateAllStreamlines()
     {
-        StartCreatingStreamlines();
-        bool major = true;
+        var major = true;
         while (CreateStreamline(major))
         {
             major = !major;
@@ -274,17 +203,17 @@ public class StreamlineGenerator
         JoinDanglingStreamlines();
     }
     
-    // Square distance from a point to a segment
+    /** Square distance from a point to a segment */
     private float GetSqSegDist(Vector2 p, Vector2 p1, Vector2 p2)
     {
-        float x = p1.X;
-        float y = p1.Y;
-        float dx = p2.X - x;
-        float dy = p2.Y - y;
+        var x = p1.X;
+        var y = p1.Y;
+        var dx = p2.X - x;
+        var dy = p2.Y - y;
 
         if (dx != 0 || dy != 0)
         {
-            float t = ((p.X - x) * dx + (p.Y - y) * dy) / (dx * dx + dy * dy);
+            var t = ((p.X - x) * dx + (p.Y - y) * dy) / (dx * dx + dy * dy);
 
             if (t > 1)
             {
@@ -306,12 +235,12 @@ public class StreamlineGenerator
 
     private void SimplifyDpStep(List<Vector2> points, int first, int last, float sqTolerance, List<Vector2> simplified)
     {
-        float maxSqDist = 0;
-        int index = 0;
+        var maxSqDist = 0f;
+        var index = 0;
         
-        for (int i = first + 1; i < last; i++)
+        for (var i = first + 1; i < last; i++)
         {
-            float sqDist = GetSqSegDist(points[i], points[first], points[last]);
+            var sqDist = GetSqSegDist(points[i], points[first], points[last]);
 
             if (sqDist > maxSqDist)
             {
@@ -337,9 +266,9 @@ public class StreamlineGenerator
     // simplification using Ramer-Douglas-Peucker algorithm
     private List<Vector2> SimplifyDouglasPeucker(List<Vector2> points, float sqTolerance)
     {
-        int last = points.Count - 1;
+        var last = points.Count - 1;
         
-        List<Vector2> simplified = new List<Vector2> { points[0] };
+        var simplified = new List<Vector2> { points[0] };
         SimplifyDpStep(points, 0, last, sqTolerance, simplified);
         simplified.Add(points[last]);
 
@@ -366,17 +295,17 @@ public class StreamlineGenerator
      */
     private bool CreateStreamline(bool major)
     {
-        Vector2? seed = GetSeed(major);
+        var seed = GetSeed(major);
         if (seed == null)
         {
             return false;
         }
-        List<Vector2> streamline = IntegrateStreamline(seed.Value, major);
+        var streamline = IntegrateStreamline(seed.Value, major);
         if (ValidStreamline(streamline))
         {
             Grid(major).AddPolyline(streamline);
             Streamlines(major).Add(streamline);
-            AllStreamlines.Add(streamline);
+            _allStreamlines.Add(streamline);
 
             AllStreamlinesSimple.Add(SimplifyStreamline(streamline));
 
@@ -415,16 +344,13 @@ public class StreamlineGenerator
 
     private Vector2 SamplePoint()
     {
-        // TODO better seeding scheme
         return new Vector2(
             (float)GD.RandRange(0, _worldDimensions.X - 1),
             (float)GD.RandRange(0, _worldDimensions.Y - 1)
         ) + _origin;
     }
     
-    /**
-     * Tries candidateSeeds first, then samples using samplePoint
-     */
+    /** Tries candidateSeeds first, then samples using samplePoint */
     private Vector2? GetSeed(bool major)
     {
         Vector2 seed;
@@ -445,7 +371,7 @@ public class StreamlineGenerator
         }
 
         seed = SamplePoint();
-        int i = 0;
+        var i = 0;
         while (!IsValidSample(major, seed, _paramsSq.Dsep))
         {
             if (i >= _parameters.SeedTries)
@@ -462,7 +388,7 @@ public class StreamlineGenerator
     private bool IsValidSample(bool major, Vector2 point, double dSq, bool bothGrids = false)
     {
         // dSq *= point.DistanceSquaredTo(Vector2.Zero);
-        bool gridValid = Grid(major).IsValidSample(point, dSq);
+        var gridValid = Grid(major).IsValidSample(point, dSq);
         if (bothGrids)
         {
             gridValid = gridValid && Grid(!major).IsValidSample(point, dSq);
@@ -477,7 +403,7 @@ public class StreamlineGenerator
 
     private List<List<Vector2>> Streamlines(bool major)
     {
-        return major ? StreamlinesMajor : StreamlinesMinor;
+        return major ? _streamlinesMajor : _streamlinesMinor;
     }
 
     private GridStorage Grid(bool major)
@@ -493,51 +419,15 @@ public class StreamlineGenerator
                 && v.Y < _worldDimensions.Y + _origin.Y
             );
     }
-    
-    /**
-     * Didn't end up using - bit expensive, used streamlineTurned instead
-     * Stops spirals from forming
-     * uses 0.5 dcirclejoin so that circles are still joined up
-     * testSample is candidate to pushed on end of streamlineForwards
-     * returns true if streamline collides with itself
-     */
-    private bool DoesStreamlineCollideSelf(Vector2 testSample, List<Vector2> streamlineForwards, List<Vector2> streamlineBackwards)
-    {
-        // Streamline long enough
-        if (streamlineForwards.Count > _nStreamlineLookBack)
-        {
-            for (int i = 0; i < streamlineForwards.Count - _nStreamlineLookBack; i += _nStreamlineStep)
-            {
-                if (testSample.DistanceSquaredTo(streamlineForwards[i]) < _dcollideselfSq)
-                {
-                    return true;
-                }
-            }
 
-            // Backwards check
-            for (int i = 0; i < streamlineBackwards.Count; i += _nStreamlineStep)
-            {
-                if (testSample.DistanceSquaredTo(streamlineBackwards[i]) < _dcollideselfSq)
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-    
-    /**
-     * Tests whether streamline has turned through greater than 180 degrees
-     */
+    /** Tests whether streamline has turned through greater than 180 degrees */
     private bool StreamlineTurned(Vector2 seed, Vector2 originalDir, Vector2 point, Vector2 direction)
     {
         if (originalDir.Dot(direction) < 0)
         {
-            // TODO optimise
-            Vector2 perpendicularVector = new(originalDir.Y, -originalDir.X);
-            bool isLeft = (point - seed).Dot(perpendicularVector) < 0;
-            bool directionUp = direction.Dot(perpendicularVector) > 0;
+            var perpendicularVector = new Vector2(originalDir.Y, -originalDir.X);
+            var isLeft = (point - seed).Dot(perpendicularVector) < 0;
+            var directionUp = direction.Dot(perpendicularVector) > 0;
             return isLeft == directionUp;
         }
 
@@ -553,7 +443,7 @@ public class StreamlineGenerator
         if (currParameters.Valid)
         {
             currParameters.Streamline.Add(currParameters.PreviousPoint);
-            Vector2 nextDirection = _integrator.Integrate(currParameters.PreviousPoint, major);
+            var nextDirection = _integrator.Integrate(currParameters.PreviousPoint, major);
 
             // Stop at degenerate point
             if (nextDirection.LengthSquared() < 0.01)
@@ -568,13 +458,7 @@ public class StreamlineGenerator
                 nextDirection = -nextDirection;
             }
 
-            Vector2 nextPoint = currParameters.PreviousPoint + nextDirection;
-
-            // Visualize stopping points
-            // if (StreamlineTurned(parameters.Seed, parameters.OriginalDir, nextPoint, nextDirection)) {
-            //     parameters.Valid = false;
-            //     parameters.Streamline.Add(Vector2.Zero);
-            // }
+            var nextPoint = currParameters.PreviousPoint + nextDirection;
 
             if (PointInBounds(nextPoint)
                 && IsValidSample(major, nextPoint, _paramsSq.Dtest, collideBoth)
@@ -598,16 +482,16 @@ public class StreamlineGenerator
      */
     private List<Vector2> IntegrateStreamline(Vector2 seed, bool major)
     {
-        int count = 0;
-        bool pointsEscaped = false; // True once two integration fronts have moved dlookahead away
+        var count = 0;
+        var pointsEscaped = false; // True once two integration fronts have moved dlookahead away
 
         // Whether or not to test validity using both grid storages
         // (Collide with both major and minor)
-        bool collideEarly = GD.Randf() < _parameters.CollideEarly;
+        var collideEarly = GD.Randf() < _parameters.CollideEarly;
 
-        Vector2 d = _integrator.Integrate(seed, major);
+        var d = _integrator.Integrate(seed, major);
 
-        StreamlineIntegration forwardParams = new StreamlineIntegration
+        var forwardParams = new StreamlineIntegration
         {
             Seed = seed,
             OriginalDir = d,
@@ -619,8 +503,8 @@ public class StreamlineGenerator
 
         forwardParams.Valid = PointInBounds(forwardParams.PreviousPoint);
 
-        Vector2 negD = -d;
-        StreamlineIntegration backwardParams = new StreamlineIntegration
+        var negD = -d;
+        var backwardParams = new StreamlineIntegration
         {
             Seed = seed,
             OriginalDir = negD,
@@ -638,7 +522,7 @@ public class StreamlineGenerator
             StreamlineIntegrationStep(ref backwardParams, major, collideEarly);
 
             // Join up circles
-            float sqDistanceBetweenPoints = forwardParams.PreviousPoint.DistanceSquaredTo(backwardParams.PreviousPoint);
+            var sqDistanceBetweenPoints = forwardParams.PreviousPoint.DistanceSquaredTo(backwardParams.PreviousPoint);
 
             if (!pointsEscaped && sqDistanceBetweenPoints > _paramsSq.DCircleJoin)
             {

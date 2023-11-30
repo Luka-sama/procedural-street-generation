@@ -6,13 +6,14 @@ using Godot;
 public partial class TerrainGenerator : Node
 {
 	public const float HeightScale = 60f;
-	private static readonly Vector2I _size = new(1024, 1024);
+	public static readonly Vector2I Size = new(2048, 1024);
 
 	public Image Generate(Graph graph, List<Tuple<Vector3I, Vector3I>> buildings)
 	{
-		GetNode<Control>("UI").Visible = false;
 		var controlMap = GenerateControlMap(graph);
 		var heightMap = GenerateHeightMap(controlMap, buildings);
+		//controlMap.SavePng("control_map.png");
+		//heightMap.SavePng("height_map.png");
 		var begin = Time.GetTicksMsec();
 		
 		var terrainAsVariant = ClassDB.Instantiate("Terrain3D");
@@ -27,48 +28,11 @@ public partial class TerrainGenerator : Node
 		storage.Set("noise_enabled", true);
 		//storage.Set("show_heightmap", true);
 		
-		/*storage.Call("add_region", new Vector3(0, 0, 0));
-		storage.Call("add_region", new Vector3(1024, 0, 1024));
-		storage.Call("add_region", new Vector3(1024, 0, -1024));
-		storage.Call("add_region", new Vector3(-2048, 0, -2048));*/
-		
-		/*controlMap.SavePng("control_map.png");
-		heightMap.SavePng("raw_height_map.png");*/
 		storage.Call("import_images", new[] {heightMap, controlMap, null}, Vector3.Zero, 0f, HeightScale);
 		
 		//terrain.Call("set_show_debug_collision", true);
 		terrain.Call("set_collision_enabled", true);
 
-		/*var rbmapRid = storage.Call("get_region_blend_map").AsRid();
-		var rbmapImg = RenderingServer.Texture2DGet(rbmapRid);
-		GetNode<TextureRect>("UI/TextureRect").Texture = ImageTexture.CreateFromImage(rbmapImg);*/
-		
-		/*var terrainShader = GD.Load("res://src/terrain.gdshader");
-		storage.Set("shader_override_enabled", true);
-		GD.Print(storage.Call("get_shader_override").AsGodotObject().Call("get_code"));
-		storage.Set("shader_override", terrainShader);
-		var shape = terrainAsNode.GetChild(0).GetChild<CollisionShape3D>(0);*/
-		//shape.Rotation = Vector3.Zero;
-		/*var shader = GetNode<MeshInstance3D>("%Roads").MaterialOverride as ShaderMaterial;
-		var heightMapData = (shape.Shape as HeightMapShape3D).MapData;
-		var byteArray = new byte[heightMapData.Length * sizeof(float)];
-		Buffer.BlockCopy(heightMapData, 0, byteArray, 0, byteArray.Length);
-
-		var heightImg = Image.CreateFromData(1025, 1025, false, Image.Format.Rf, byteArray);
-		heightImg.Rotate90(ClockDirection.Counterclockwise);
-		
-		var png = Image.Create(1025, 1025, false, Image.Format.Rgb8);
-		for (var y = 0; y < 1025; y++)
-		{
-			for (var x = 0; x < 1025; x++)
-			{
-				var h = heightImg.GetPixel(x, y).R / _heightScale;
-				png.SetPixel(x, y, new Color(h, h, h));
-			}
-		}
-		png.SavePng("height_map.png");
-		
-		shader.SetShaderParameter("height_map", ImageTexture.CreateFromImage(heightImg));*/
 		GD.Print("Terrain generated in ", (Time.GetTicksMsec() - begin), " ms");
 		return heightMap;
 	}
@@ -77,31 +41,29 @@ public partial class TerrainGenerator : Node
 	{
 		var begin = Time.GetTicksMsec();
 		
-		var img = Image.Create(_size.X, _size.Y, false, Image.Format.Rgb8);
+		var img = Image.Create(Size.X, Size.Y, false, Image.Format.Rgb8);
 		// black - terrain, Color8(1, 0, 0) - roads
 		img.Fill(Colors.Black);
 		foreach (var edge in graph.Edges)
 		{
-			foreach (var p in edge.Polygons)
+			var p = edge.Polygon;
+			var indexes = Geometry2D.TriangulatePolygon(p.Select(v => (Vector2)v).ToArray());
+			for (var i = 0; i < indexes.Length; i += 3)
 			{
-				var indexes = Geometry2D.TriangulatePolygon(p.Select(v => (Vector2)v).ToArray());
-				for (var i = 0; i < indexes.Length; i += 3)
+				Vector2I a = p[indexes[i]], b = p[indexes[i + 1]], c = p[indexes[i + 2]];
+				var d = 4;
+				var minX = Mathf.Clamp(Mathf.Min(Mathf.Min(a.X, b.X), c.X) - d, 0, Size.X - 1);
+				var maxX = Mathf.Clamp(Mathf.Max(Mathf.Max(a.X, b.X), c.X) + d, 0, Size.X - 1);
+				var minY = Mathf.Clamp(Mathf.Min(Mathf.Min(a.Y, b.Y), c.Y) - d, 0, Size.Y - 1);
+				var maxY = Mathf.Clamp(Mathf.Max(Mathf.Max(a.Y, b.Y), c.Y) + d, 0, Size.Y - 1);
+				for (var x = minX; x <= maxX; x++)
 				{
-					Vector2I a = p[indexes[i]], b = p[indexes[i + 1]], c = p[indexes[i + 2]];
-					var d = 4;
-					var minX = Mathf.Clamp(Mathf.Min(Mathf.Min(a.X, b.X), c.X) - d, 0, _size.X - 1);
-					var maxX = Mathf.Clamp(Mathf.Max(Mathf.Max(a.X, b.X), c.X) + d, 0, _size.X - 1);
-					var minY = Mathf.Clamp(Mathf.Min(Mathf.Min(a.Y, b.Y), c.Y) - d, 0, _size.Y - 1);
-					var maxY = Mathf.Clamp(Mathf.Max(Mathf.Max(a.Y, b.Y), c.Y) + d, 0, _size.Y - 1);
-					for (var x = minX; x <= maxX; x++)
+					for (var y = minY; y <= maxY; y++)
 					{
-						for (var y = minY; y <= maxY; y++)
+						var point = new Vector2I(x, y);
+						if (SquaredDistanceFromPointToTriangle(point, a, b, c) < d * d)
 						{
-							var point = new Vector2I(x, y);
-							if (SquaredDistanceFromPointToTriangle(point, a, b, c) < d * d)
-							{
-								img.SetPixelv(point, Color.Color8(1, 0, 0));
-							}
+							img.SetPixelv(point, Color.Color8(1, 0, 0));
 						}
 					}
 				}
@@ -119,16 +81,15 @@ public partial class TerrainGenerator : Node
 		var noise = new FastNoiseLite();
 		noise.Seed = (int)GD.Randi();
 		noise.Frequency = 0.001f;
-		var maxPixel = new Vector3I(_size.X - 1, 0, _size.Y - 1);
-		var noiseImg = noise.GetImage(_size.X, _size.Y);
+		var maxPixel = new Vector3I(Size.X - 1, 0, Size.Y - 1);
+		var noiseImg = noise.GetImage(Size.X, Size.Y);
 		var heightMap = (Image)noiseImg.Duplicate();
 		var filterSize = 30;
 
 		var heightMapSat = GenerateSummedAreaTable(heightMap);
-		var controlMapSat = GenerateSummedAreaTable(controlMap);
-		for (var y = 0; y < _size.Y; y++)
+		for (var y = 0; y < Size.Y; y++)
 		{
-			for (var x = 0; x < _size.X; x++)
+			for (var x = 0; x < Size.X; x++)
 			{
 				if (controlMap.GetPixel(x, y) == Colors.Black)
 				{
@@ -136,28 +97,14 @@ public partial class TerrainGenerator : Node
 				}
 				var x0 = Mathf.Max(x - filterSize, 0);
 				var y0 = Mathf.Max(y - filterSize, 0);
-				var x1 = Mathf.Min(x + filterSize, _size.X - 1);
-				var y1 = Mathf.Min(y + filterSize, _size.Y - 1);
+				var x1 = Mathf.Min(x + filterSize, Size.X - 1);
+				var y1 = Mathf.Min(y + filterSize, Size.Y - 1);
 				
 				var sumHeight = GetAreaSum(heightMapSat, x0, y0, x1, y1);
-				var sumControl = GetAreaSum(controlMapSat, x0, y0, x1, y1);
 				var area = (x1 - x0 + 1) * (y1 - y0 + 1);
 				var avgHeight = sumHeight / area;
-				var avgControl = sumControl / area;
 
-				var h = avgHeight - 0.01f;// * avgControl;
-				//h = heightMap.GetPixel(x, y).R - 0.01f;
-				/*var sh = 0f;
-				var scount = 0;
-				for (var sy = Mathf.Max(y - filterSize, 0); sy <= Mathf.Min(y + filterSize, height - 1); sy++)
-				{
-					for (var sx = Mathf.Max(x - filterSize, 0); sx <= Mathf.Min(x + filterSize, width - 1); sx++)
-					{
-						sh += noiseImg.GetPixel(sx, sy).R;
-						scount++;
-					}
-				}
-				sh = sh / scount - 0.02f;*/
+				var h = avgHeight - 0.01f;
 				heightMap.SetPixel(x, y, new Color(h, h, h));
 			}
         }

@@ -1,0 +1,44 @@
+[gd_scene load_steps=10 format=3 uid="uid://bgmuloqqbx6et"]
+
+[ext_resource type="Script" path="res://src/Main.cs" id="1_7ia0q"]
+[ext_resource type="Script" path="res://src/ModelGenerator.cs" id="1_rmdud"]
+[ext_resource type="Script" path="res://src/CityScheme.cs" id="2_3jbl0"]
+[ext_resource type="PackedScene" uid="uid://c8je6320jg7eq" path="res://scenes/UI.tscn" id="4_jbhbp"]
+[ext_resource type="PackedScene" path="res://scenes/World.tscn" id="5_ix1ht"]
+[ext_resource type="PackedScene" uid="uid://vetl0mfl53ir" path="res://scenes/Player.tscn" id="7_hm24g"]
+[ext_resource type="Script" path="res://src/BuildingGenerator.cs" id="8_k33er"]
+[ext_resource type="Script" path="res://src/TerrainGenerator.cs" id="9_5pjln"]
+[ext_resource type="Script" path="res://src/AgentGenerator.cs" id="9_7s8ml"]
+
+[node name="Main" type="Node3D"]
+script = ExtResource("1_7ia0q")
+
+[node name="World" parent="." instance=ExtResource("5_ix1ht")]
+
+[node name="Player" parent="." instance=ExtResource("7_hm24g")]
+unique_name_in_owner = true
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 512, 60, 512)
+gravity_enabled = false
+
+[node name="UI" parent="." instance=ExtResource("4_jbhbp")]
+
+[node name="CityScheme" type="Node2D" parent="."]
+unique_name_in_owner = true
+visible = false
+script = ExtResource("2_3jbl0")
+
+[node name="ModelGenerator" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("1_rmdud")
+
+[node name="BuildingGenerator" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("8_k33er")
+
+[node name="AgentGenerator" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("9_7s8ml")
+
+[node name="TerrainGenerator" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("9_5pjln")

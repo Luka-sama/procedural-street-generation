@@ -1,74 +1,43 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Godot;
+
+public enum SchemeState
+{
+    TensorField,
+    Streamlines,
+    Graph
+}
 
 public partial class CityScheme : Node2D
 {
     public Vector2 UserPosition { get; set; } = Vector2.Zero;
-    public bool ShouldDrawTensorField { get; set; }
-    public bool WithGraph { get; set; } = true;
+    public SchemeState SchemeState { get; set; }
     private const float TensorLineDiameter = 20;
     private Vector2 _origin = Vector2.Zero;
-    private Vector2 _worldDimensions = new Vector2(1920, 1080);
     private TensorField _tensorField;
-    private StreamlineGenerator _mainStreamlines;
     private StreamlineGenerator _majorStreamlines;
-    private StreamlineGenerator _minorStreamlines;
-    private bool _end;
     private Graph _graph;
     private ModelGenerator _modelGenerator;
 
     public override void _Ready()
     {
-        _modelGenerator = GetNode<ModelGenerator>("%Roads");
+        _modelGenerator = GetNode<ModelGenerator>("%ModelGenerator");
         GenerateTensorField();
         GenerateStreamlines();
     }
 
     public override void _Draw()
     {
-        if (ShouldDrawTensorField) DrawTensorField();
+        if (SchemeState == SchemeState.TensorField) DrawTensorField();
         else DrawRoads();
         
         DrawCircle(UserPosition, 10, Colors.LightGreen);
     }
-
-    private List<List<Vector2>> GetMainRoads()
-    {
-        return _mainStreamlines.AllStreamlinesSimple;
-    }
     
     private List<List<Vector2>> GetMajorRoads()
     {
-        /*return new()
-        {
-            new() {new(2, 2), new(200, 200), new(400, 500)},
-            new() {new(0, 350), new(350, 350)},
-            new() {new(2, 500), new(200, 400), new(500, 2)},
-            new() {new(70, 420), new(300, 400)}
-        };*/
-        /*foreach (var streamline in _majorStreamlines.AllStreamlinesSimple)
-        {
-            var str = "new() {";
-            foreach (var point in streamline)
-            {
-                str += "new(" + point.X.ToString().Replace(",", ".") + "f, " + point.Y.ToString().Replace(",", ".") + "f), ";
-            }
-            str = str.Substr(0, str.Length - 2) + "},";
-            GD.Print(str);
-        }*/
         return _majorStreamlines.AllStreamlinesSimple;
-    }
-    
-    private List<List<Vector2>> GetMinorRoads()
-    {
-        return _minorStreamlines.AllStreamlinesSimple;
-    }
-
-    public Graph GetGraph()
-    {
-        return _graph;
     }
 
     private void GenerateTensorField()
@@ -87,19 +56,18 @@ public partial class CityScheme : Node2D
         for (var i = 0; i < fieldCount; i++)
         {
             var centre = new Vector2(
-                (float)GD.RandRange(0, _worldDimensions.X - 1),
-                Mathf.Lerp(0f, _worldDimensions.Y - 1, (float)i / (fieldCount - 1))
+                (float)GD.RandRange(0, TerrainGenerator.Size.X - 1),
+                Mathf.Lerp(0f, TerrainGenerator.Size.Y - 1, (float)i / (fieldCount - 1))
             );
-            var size = GD.RandRange(_worldDimensions.X / 10, _worldDimensions.X / 4);
+            var size = GD.RandRange(TerrainGenerator.Size.X / 10, TerrainGenerator.Size.X / 4);
             
-            var decay = 0;//GD.RandRange(0, 50);
             if (GD.RandRange(1, 10) <= 3)
             {
                 var theta = GD.RandRange(0, Math.PI / 2);
-                _tensorField.AddGrid(centre, size, decay, theta);
+                _tensorField.AddGrid(centre, size, 0, theta);
             } else
             {
-                _tensorField.AddRadial(centre, size, decay);
+                _tensorField.AddRadial(centre, size, 0);
             }
         }
         
@@ -124,23 +92,13 @@ public partial class CityScheme : Node2D
             CollideEarly = 0,
         };
         var integrator = new RK4Integrator(_tensorField, parameters);
-        
-        _mainStreamlines = new StreamlineGenerator(integrator, _origin, _worldDimensions, parameters);
-        _mainStreamlines.StartCreatingStreamlines();
 
         parameters.Dsep = 100;
         parameters.Dtest = 30;
         parameters.DLookahead = 200;
-        _majorStreamlines = new StreamlineGenerator(integrator, _origin, _worldDimensions, parameters);
-        _majorStreamlines.StartCreatingStreamlines();
-
-        parameters.Dsep = 20;
-        parameters.Dtest = 15;
-        parameters.DLookahead = 40;
-        _minorStreamlines = new StreamlineGenerator(integrator, _origin, _worldDimensions, parameters);
-        _minorStreamlines.StartCreatingStreamlines();
-
-        while (_majorStreamlines.Update()) {}
+        _majorStreamlines = new StreamlineGenerator(integrator, _origin, TerrainGenerator.Size, parameters);
+        _majorStreamlines.CreateAllStreamlines();
+        
         GD.Print("Streamlines generated in ", (Time.GetTicksMsec() - begin), " ms");
         
         _graph = Graph.CreateFromStreamlines(GetMajorRoads());
@@ -154,20 +112,11 @@ public partial class CityScheme : Node2D
         {
             return;
         }
+        
         var polylineColor = Color.Color8(255, 255, 255, 50);
         var pointColor = Colors.Aqua;
-        
-        /*foreach (var polygon in BuildingGenerator.Polygons)
-        {
-            var color = new Color(GD.Randf(), GD.Randf(), GD.Randf());
-            DrawColoredPolygon(polygon.Select(v => (Vector2)v).ToArray(), color);
-        }*/
-        
-        /*foreach (var road in GetMainRoads())
-        {
-            DrawPolylineWithPoints(road.ToArray(), polylineColor, pointColor, 8);
-        }*/
-        if (WithGraph)
+
+        if (SchemeState == SchemeState.Graph)
         {
             foreach (var edge in _graph.Edges)
             {
@@ -180,10 +129,6 @@ public partial class CityScheme : Node2D
                 DrawPolylineWithPoints(road.ToArray(), polylineColor, pointColor, 4);
             }
         }
-        /*foreach (var road in GetMinorRoads())
-        {
-            DrawPolylineWithPoints(road.ToArray(), polylineColor, pointColor, 2);
-        }*/
     }
 
     private void DrawTensorField()
@@ -221,8 +166,8 @@ public partial class CityScheme : Node2D
         
         var zoom = 1f;
         var diameter = TensorLineDiameter / zoom;
-        var nHor = Mathf.CeilToInt(_worldDimensions.X / diameter) + 1; // Prevent pop-in
-        var nVer = Mathf.CeilToInt(_worldDimensions.Y / diameter) + 1;
+        var nHor = Mathf.CeilToInt(TerrainGenerator.Size.X / diameter) + 1; // Prevent pop-in
+        var nVer = Mathf.CeilToInt(TerrainGenerator.Size.Y / diameter) + 1;
         var originX = diameter * (float)Math.Floor(_origin.X / diameter);
         var originY = diameter * (float)Math.Floor(_origin.Y / diameter);
 
@@ -240,10 +185,9 @@ public partial class CityScheme : Node2D
     
     private Vector2[] GetTensorLine(Vector2 point, Vector2 tensorV)
     {
-        var transformedPoint = point; //domainController.worldToScreen(point);
         var diff = tensorV * (TensorLineDiameter / 2);  // Assumes normalised
-        var start = transformedPoint - diff;
-        var end = transformedPoint + diff;
+        var start = point - diff;
+        var end = point + diff;
         return new[] {start, end};
     }
 }

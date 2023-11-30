@@ -30,10 +30,10 @@ public class RK4Integrator : FieldIntegrator
 
     public override Vector2 Integrate(Vector2 point, bool major)
     {
-        float dstep = _parameters.Dstep;
-        Vector2 k1 = SampleFieldVector(point, major);
-        Vector2 k23 = SampleFieldVector(point + new Vector2(dstep / 2, dstep / 2), major);
-        Vector2 k4 = SampleFieldVector(point + new Vector2(dstep, dstep), major);
+        var dstep = _parameters.Dstep;
+        var k1 = SampleFieldVector(point, major);
+        var k23 = SampleFieldVector(point + new Vector2(dstep / 2, dstep / 2), major);
+        var k4 = SampleFieldVector(point + new Vector2(dstep, dstep), major);
 
         return (k1 + 4 * k23 + k4) * (dstep / 6);
     }

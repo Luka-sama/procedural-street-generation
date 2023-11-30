@@ -20,25 +20,13 @@ public class TensorField
 
     private readonly bool _smooth = false;
 
-    private NoiseParams _noiseParams;
+    private readonly NoiseParams _noiseParams;
 
     public TensorField(NoiseParams noiseParams)
     {
         _noiseParams = noiseParams;
         _noise = new FastNoiseLite();
         _noise.NoiseType = FastNoiseLite.NoiseTypeEnum.Simplex;
-    }
-
-    public void EnableGlobalNoise(double angle, double size)
-    {
-        _noiseParams.GlobalNoise = true;
-        _noiseParams.NoiseAngleGlobal = angle;
-        _noiseParams.NoiseSizeGlobal = size;
-    }
-
-    public void DisableGlobalNoise()
-    {
-        _noiseParams.GlobalNoise = false;
     }
 
     public void AddGrid(Vector2 centre, double size, double decay, double theta)
@@ -80,9 +68,7 @@ public class TensorField
         return tensorAcc;
     }
 
-    /**
-     * Noise Angle is in degrees
-     */
+    /** Noise Angle is in degrees */
     private double GetRotationalNoise(Vector2 point, double noiseSize, double noiseAngle)
     {
         return _noise.GetNoise2D((float) (point.X / noiseSize), (float)(point.Y / noiseSize)) * noiseAngle * Math.PI / 180;

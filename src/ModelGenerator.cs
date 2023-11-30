@@ -2,11 +2,9 @@ using System;
 using Godot;
 using System.Collections.Generic;
 
-public partial class ModelGenerator : MeshInstance3D
+public partial class ModelGenerator : Node
 {
-	public float ModelScale => 1f;
 	private Graph _graph;
-	private ulong _savedState;
 	private List<Tuple<Vector3I, Vector3I>> _buildings;
 	private TerrainGenerator _terrainGenerator;
 	private BuildingGenerator _buildingGenerator;
@@ -34,29 +32,23 @@ public partial class ModelGenerator : MeshInstance3D
 	{
 		foreach (var edge in _graph.Edges)
 		{
-			CalcEdgePolygon(edge, 15);
+			CalcEdgePolygon(edge, GD.RandRange(20, 30));
 		}
-		
-		Scale = ModelScale * Vector3.One;
 	}
 
 	private void CalcEdgePolygon(Edge edge, int roadWidth)
 	{
-		if (edge.Polygons.Count > 0) return;
-		edge.Width = roadWidth;
+		if (edge.Polygon.Count > 0) return;
 
 		// Calc original rectangle
 		Vector2I from = edge.From.Point, to = edge.To.Point;
 		var dir = to - from;
 		var perpDir = new Vector2I(Mathf.FloorToInt(dir.Y / dir.Length()), Mathf.FloorToInt(-dir.X / dir.Length()));
 		var offset = perpDir * roadWidth / 2;
-		edge.Polygons.Add(new()
-		{
-			from - offset, // FromLeft
-			from + offset, // FromRight
-			to + offset, // ToRight
-			to - offset // ToLeft
-		});
+		edge.Polygon.Add(from - offset); // FromLeft
+		edge.Polygon.Add(from + offset); // FromRight
+		edge.Polygon.Add(to + offset); // ToRight
+		edge.Polygon.Add(to - offset); // ToLeft
 
 		TriangleConnection(edge, true);
 		TriangleConnection(edge, false);
@@ -64,21 +56,21 @@ public partial class ModelGenerator : MeshInstance3D
 
 	private void TriangleConnection(Edge edge, bool isFrom)
 	{
-		Vertex vertex = (isFrom ? edge.From : edge.To);
+		var vertex = (isFrom ? edge.From : edge.To);
 		foreach (var edge2 in vertex.Edges)
 		{
-			if (edge == edge2 || edge2.Polygons.Count < 1 || edge.RoadNum != edge2.RoadNum) continue;
+			if (edge == edge2 || edge2.Polygon.Count < 1 || edge.RoadNum != edge2.RoadNum) continue;
 			
-			var left = (edge2.From == vertex ? edge2.Polygons[0][0] : edge2.Polygons[0][3]);
-			var right = (edge2.From == vertex ? edge2.Polygons[0][1] : edge2.Polygons[0][2]);
+			var left = (edge2.From == vertex ? edge2.Polygon[0] : edge2.Polygon[3]);
+			var right = (edge2.From == vertex ? edge2.Polygon[1] : edge2.Polygon[2]);
 			if (isFrom)
 			{
-				edge.Polygons[0][0] = left;
-				edge.Polygons[0][1] = right;
+				edge.Polygon[0] = left;
+				edge.Polygon[1] = right;
 			} else
 			{
-				edge.Polygons[0][3] = left;
-				edge.Polygons[0][2] = right;
+				edge.Polygon[3] = left;
+				edge.Polygon[2] = right;
 			}
 		}
 	}

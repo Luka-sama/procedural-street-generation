@@ -7,9 +7,8 @@ public class Tensor
     private double _theta;
     private double _r;
     private readonly double[] _matrix;
-    private readonly double _angleBetweenRoads;
 
-    public static Tensor Zero => new Tensor(0, new double[] { 0, 0 });
+    public static Tensor Zero => new(0, new double[] { 0, 0 });
 
     private double Theta
     {
@@ -28,32 +27,17 @@ public class Tensor
     public Tensor(double r, double[] matrix)
     {
         // Represent the matrix as a 2 element list
-        // [ 0, 1
-        //   1, -0 ]
+        // [ 0th element, 1th element
+        //   1th element, -0th element ]
         _r = r;
         _matrix = matrix;
         _oldTheta = false;
         _theta = CalculateTheta();
-        _angleBetweenRoads = Math.PI / 2;//GD.RandRange(2, 4);
-    }
-
-    public static Tensor FromAngle(double angle)
-    {
-        return new Tensor(1, new[] { Math.Cos(angle * 4), Math.Sin(angle * 4) });
-    }
-
-    public static Tensor FromVector(Vector2 vector)
-    {
-        double t1 = Math.Pow(vector.X, 2) - Math.Pow(vector.Y, 2);
-        double t2 = 2 * vector.X * vector.Y;
-        double t3 = Math.Pow(t1, 2) - Math.Pow(t2, 2);
-        double t4 = 2 * t1 * t2;
-        return new Tensor(1, new[] { t3, t4 });
     }
 
     public void Add(Tensor tensor, bool smooth)
     {
-        for (int i = 0; i < _matrix.Length; i++)
+        for (var i = 0; i < _matrix.Length; i++)
         {
             _matrix[i] = _matrix[i] * _r + tensor._matrix[i] * tensor._r;
         }
@@ -86,7 +70,7 @@ public class Tensor
             return;
         }
 
-        double newTheta = Theta + theta;
+        var newTheta = Theta + theta;
         if (newTheta < Math.PI)
         {
             newTheta += Math.PI;
@@ -121,7 +105,7 @@ public class Tensor
             return Vector2.Zero;
         }
 
-        double angle = Theta + _angleBetweenRoads;
+        var angle = Theta + Math.PI / 2;
         return new Vector2((float)Math.Cos(angle), (float)Math.Sin(angle));
     }
 

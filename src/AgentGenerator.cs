@@ -13,10 +13,10 @@ public partial class AgentGenerator : Node
 		_graph = graph;
 		_heightMap = heightMap;
 		_size = heightMap.GetSize();
-		var agentScene = GD.Load<PackedScene>("res://Agent.tscn");
+		var agentScene = GD.Load<PackedScene>("res://scenes/Agent.tscn");
 		foreach (var vertex in graph.Vertices)
 		{
-			if (GD.RandRange(0, 2) == 0 || !IsInBorders(vertex.Point)) continue;
+			if (GD.RandRange(0, 2) != 0 || !IsInBorders(vertex.Point)) continue;
 			var edge = GetRandomDirection(vertex);
 			if (edge == null) continue;
 			

@@ -85,15 +85,15 @@ public class GridStorage
         // Code duplication with getNearbyPoints but much slower when calling
         // getNearbyPoints due to array creation in that method
 
-        double dSq = givenDSq ?? _dsepSq;
-        Vector2 coords = GetSampleCoords(v);
+        var dSq = givenDSq ?? _dsepSq;
+        var coords = GetSampleCoords(v);
 
         // Check samples in 9 cells in 3x3 grid
         for (int x = -1; x <= 1; x++)
         {
             for (int y = -1; y <= 1; y++)
             {
-                Vector2 cell = coords + new Vector2(x, y);
+                var cell = coords + new Vector2(x, y);
                 if (!VectorOutOfBounds(cell, _gridDimensions) &&
                     !VectorFarFromVectors(v, _grid[(int)cell.X][(int)cell.Y], dSq))
                 {
@@ -135,9 +135,9 @@ public class GridStorage
      */
     public List<Vector2> GetNearbyPoints(Vector2 v, double distance)
     {
-        int radius = (int)Math.Ceiling((distance / _dsep) - 0.5);
-        Vector2 coords = GetSampleCoords(v);
-        List<Vector2> outList = new();
+        var radius = (int)Math.Ceiling((distance / _dsep) - 0.5);
+        var coords = GetSampleCoords(v);
+        var outList = new List<Vector2>();
         for (int x = -1 * radius; x <= 1 * radius; x++)
         {
             for (int y = -1 * radius; y <= 1 * radius; y++)
@@ -161,11 +161,6 @@ public class GridStorage
         return v - _origin;
     }
 
-    /*private Vector2 GridToWorld(Vector2 v)
-    {
-        return v + _origin;
-    }*/
-
     private bool VectorOutOfBounds(Vector2 gridV, Vector2 bounds)
     {
         return (gridV.X < 0 || gridV.Y < 0 ||
@@ -174,7 +169,7 @@ public class GridStorage
 
     private Vector2 GetSampleCoords(Vector2 worldV)
     {
-        Vector2 v = WorldToGrid(worldV);
+        var v = WorldToGrid(worldV);
         if (VectorOutOfBounds(v, _worldDimensions))
         {
             return Vector2.Zero;
