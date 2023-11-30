@@ -467,7 +467,7 @@ public class StreamlineGenerator
         {
             gridValid = gridValid && Grid(!major).IsValidSample(point, dSq);
         }
-        return _integrator.OnLand(point) && gridValid;
+        return gridValid;
     }
 
     private List<Vector2> CandidateSeeds(bool major)

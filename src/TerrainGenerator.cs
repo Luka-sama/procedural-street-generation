@@ -5,10 +5,12 @@ using Godot;
 
 public partial class TerrainGenerator : Node
 {
-	private const float _heightScale = 60f;
+	public const float HeightScale = 60f;
+	private static readonly Vector2I _size = new(1024, 1024);
 
-	public void Generate(Graph graph, List<Tuple<Vector3I, Vector3I>> buildings)
+	public Image Generate(Graph graph, List<Tuple<Vector3I, Vector3I>> buildings)
 	{
+		GetNode<Control>("UI").Visible = false;
 		var controlMap = GenerateControlMap(graph);
 		var heightMap = GenerateHeightMap(controlMap, buildings);
 		var begin = Time.GetTicksMsec();
@@ -30,9 +32,9 @@ public partial class TerrainGenerator : Node
 		storage.Call("add_region", new Vector3(1024, 0, -1024));
 		storage.Call("add_region", new Vector3(-2048, 0, -2048));*/
 		
-		//controlMap.SavePng("control_map.png");
-		//heightMap.SavePng("raw_height_map.png");
-		storage.Call("import_images", new[] {heightMap, controlMap, null}, Vector3.Zero, 0f, _heightScale);
+		/*controlMap.SavePng("control_map.png");
+		heightMap.SavePng("raw_height_map.png");*/
+		storage.Call("import_images", new[] {heightMap, controlMap, null}, Vector3.Zero, 0f, HeightScale);
 		
 		//terrain.Call("set_show_debug_collision", true);
 		terrain.Call("set_collision_enabled", true);
@@ -68,15 +70,15 @@ public partial class TerrainGenerator : Node
 		
 		shader.SetShaderParameter("height_map", ImageTexture.CreateFromImage(heightImg));*/
 		GD.Print("Terrain generated in ", (Time.GetTicksMsec() - begin), " ms");
+		return heightMap;
 	}
 
 	private static Image GenerateControlMap(Graph graph)
 	{
 		var begin = Time.GetTicksMsec();
 		
-		const int width = 1024, height = 1024;
-		var img = Image.Create(width, height, false, Image.Format.Rgb8);
-		// black - terrain, white - roads
+		var img = Image.Create(_size.X, _size.Y, false, Image.Format.Rgb8);
+		// black - terrain, Color8(1, 0, 0) - roads
 		img.Fill(Colors.Black);
 		foreach (var edge in graph.Edges)
 		{
@@ -87,10 +89,10 @@ public partial class TerrainGenerator : Node
 				{
 					Vector2I a = p[indexes[i]], b = p[indexes[i + 1]], c = p[indexes[i + 2]];
 					var d = 4;
-					var minX = Mathf.Clamp(Mathf.Min(Mathf.Min(a.X, b.X), c.X) - d, 0, width - 1);
-					var maxX = Mathf.Clamp(Mathf.Max(Mathf.Max(a.X, b.X), c.X) + d, 0, width - 1);
-					var minY = Mathf.Clamp(Mathf.Min(Mathf.Min(a.Y, b.Y), c.Y) - d, 0, height - 1);
-					var maxY = Mathf.Clamp(Mathf.Max(Mathf.Max(a.Y, b.Y), c.Y) + d, 0, height - 1);
+					var minX = Mathf.Clamp(Mathf.Min(Mathf.Min(a.X, b.X), c.X) - d, 0, _size.X - 1);
+					var maxX = Mathf.Clamp(Mathf.Max(Mathf.Max(a.X, b.X), c.X) + d, 0, _size.X - 1);
+					var minY = Mathf.Clamp(Mathf.Min(Mathf.Min(a.Y, b.Y), c.Y) - d, 0, _size.Y - 1);
+					var maxY = Mathf.Clamp(Mathf.Max(Mathf.Max(a.Y, b.Y), c.Y) + d, 0, _size.Y - 1);
 					for (var x = minX; x <= maxX; x++)
 					{
 						for (var y = minY; y <= maxY; y++)
@@ -98,7 +100,7 @@ public partial class TerrainGenerator : Node
 							var point = new Vector2I(x, y);
 							if (SquaredDistanceFromPointToTriangle(point, a, b, c) < d * d)
 							{
-								img.SetPixelv(point, Colors.White);
+								img.SetPixelv(point, Color.Color8(1, 0, 0));
 							}
 						}
 					}
@@ -117,25 +119,25 @@ public partial class TerrainGenerator : Node
 		var noise = new FastNoiseLite();
 		noise.Seed = (int)GD.Randi();
 		noise.Frequency = 0.001f;
-		const int width = 1024, height = 1024;
-		var noiseImg = noise.GetImage(width, height);
+		var maxPixel = new Vector3I(_size.X - 1, 0, _size.Y - 1);
+		var noiseImg = noise.GetImage(_size.X, _size.Y);
 		var heightMap = (Image)noiseImg.Duplicate();
 		var filterSize = 30;
 
 		var heightMapSat = GenerateSummedAreaTable(heightMap);
 		var controlMapSat = GenerateSummedAreaTable(controlMap);
-		for (var y = 0; y < height; y++)
+		for (var y = 0; y < _size.Y; y++)
 		{
-			for (var x = 0; x < width; x++)
+			for (var x = 0; x < _size.X; x++)
 			{
-				if (controlMap.GetPixel(x, y) != Colors.White)
+				if (controlMap.GetPixel(x, y) == Colors.Black)
 				{
 					continue; // not road
 				}
 				var x0 = Mathf.Max(x - filterSize, 0);
 				var y0 = Mathf.Max(y - filterSize, 0);
-				var x1 = Mathf.Min(x + filterSize, width - 1);
-				var y1 = Mathf.Min(y + filterSize, height - 1);
+				var x1 = Mathf.Min(x + filterSize, _size.X - 1);
+				var y1 = Mathf.Min(y + filterSize, _size.Y - 1);
 				
 				var sumHeight = GetAreaSum(heightMapSat, x0, y0, x1, y1);
 				var sumControl = GetAreaSum(controlMapSat, x0, y0, x1, y1);
@@ -167,8 +169,8 @@ public partial class TerrainGenerator : Node
 			var size = building.Item2;
 
 			// Calculate average height in the building area
-			var from = position.Clamp(Vector3I.Zero, new Vector3I(width - 1, 0, height - 1));
-			var to = (position + size).Clamp(Vector3I.Zero, new Vector3I(width - 1, 0, height - 1));
+			var from = position.Clamp(Vector3I.Zero, maxPixel);
+			var to = (position + size).Clamp(Vector3I.Zero, maxPixel);
 			var h = 0f;
 			var count = 0;
 			for (var x = from.X; x <= to.X; x++)
@@ -181,15 +183,31 @@ public partial class TerrainGenerator : Node
 			}
 
 			h /= count;
-			position.Y = Mathf.FloorToInt(h * _heightScale);
+			position.Y = Mathf.FloorToInt(h * HeightScale);
 			buildings[i] = new Tuple<Vector3I, Vector3I>(position, size);
 
-			// Set constant height for a building
-			for (var x = from.X; x <= to.X; x++)
+			var d = BuildingGenerator.DistanceBetweenBuildings;
+			var fromMinusD = (from - new Vector3I(d, d, d)).Clamp(Vector3I.Zero, maxPixel);
+			var toPlusD = (to + new Vector3I(d, d, d)).Clamp(Vector3I.Zero, maxPixel);
+			// Set constant height for a building and make a smooth transition to this height
+			for (var x = fromMinusD.X; x <= toPlusD.X; x++)
 			{
-				for (var y = from.Z; y <= to.Z; y++)
+				for (var y = fromMinusD.Z; y <= toPlusD.Z; y++)
 				{
-					heightMap.SetPixel(x, y, new Color(h, h, h));
+					if (x >= from.X && x <= to.X && y >= from.Z && y <= to.Z)
+					{
+						heightMap.SetPixel(x, y, new Color(h, h, h));
+					} else
+					{
+						var oldHeight = heightMap.GetPixel(x, y).R;
+						var dX = (x < from.X ? from.X - x : (x > to.X ? x - to.X : 0));
+						var dY = (y < from.Z ? from.Z - y : (y > to.Z ? y - to.Z : 0));
+						var wX = (float)dX / d;
+						var wY = (float)dY / d;
+						var w = 1 - Mathf.Max(wX, wY);
+						var newHeight = Mathf.Lerp(oldHeight, h,  w);
+						heightMap.SetPixel(x, y, new Color(newHeight, newHeight, newHeight));
+					}
 				}
 			}
 		}

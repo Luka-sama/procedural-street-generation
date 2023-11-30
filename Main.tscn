@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3 uid="uid://bgmuloqqbx6et"]
+[gd_scene load_steps=11 format=3 uid="uid://bgmuloqqbx6et"]
 
 [ext_resource type="Script" path="res://src/Main.cs" id="1_7ia0q"]
 [ext_resource type="Script" path="res://src/ModelGenerator.cs" id="1_rmdud"]
@@ -8,6 +8,7 @@
 [ext_resource type="PackedScene" uid="uid://we1g70w6gfna" path="res://TerrainGenerator.tscn" id="6_8d630"]
 [ext_resource type="PackedScene" uid="uid://vetl0mfl53ir" path="res://Player.tscn" id="7_hm24g"]
 [ext_resource type="Script" path="res://src/BuildingGenerator.cs" id="8_k33er"]
+[ext_resource type="Script" path="res://src/AgentGenerator.cs" id="9_7s8ml"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_hciei"]
 render_priority = 0
@@ -41,3 +42,7 @@ gravity_enabled = false
 [node name="BuildingGenerator" type="Node" parent="."]
 unique_name_in_owner = true
 script = ExtResource("8_k33er")
+
+[node name="AgentGenerator" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("9_7s8ml")

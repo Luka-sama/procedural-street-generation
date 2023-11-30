@@ -5,12 +5,14 @@ using Godot;
 
 public partial class BuildingGenerator : Node
 {
+	public const int DistanceBetweenBuildings = 25;
+
 	public static List<Tuple<Vector3I, Vector3I>> GenerateInfo(Graph graph)
 	{
 		var begin = Time.GetTicksMsec();
 		
 		var polygons = GeneratePolygons(graph);
-		
+
 		GD.Print("Lots found in ", (Time.GetTicksMsec() - begin), " ms");
 		begin = Time.GetTicksMsec();
 		
@@ -174,11 +176,11 @@ public partial class BuildingGenerator : Node
 	private static bool IntersectsOtherBuildings(Tuple<Vector3I, Vector3I> building, List<Tuple<Vector3I, Vector3I>> buildings)
 	{
 		int x1 = building.Item1.X, y1 = building.Item1.Z;
-		int w1 = building.Item2.X, h1 = building.Item1.Z;
+		int w1 = building.Item2.X + DistanceBetweenBuildings, h1 = building.Item1.Z + DistanceBetweenBuildings;
 		foreach (var (pos2, size2) in buildings)
 		{
 			int x2 = pos2.X, y2 = pos2.Z;
-			int w2 = size2.X, h2 = size2.Z;
+			int w2 = size2.X + DistanceBetweenBuildings, h2 = size2.Z + DistanceBetweenBuildings;
 			if (x1 < x2 + w2 && x2 < x1 + w1 && y1 < y2 + h2 && y2 < y1 + h1)
 			{
 				return true;

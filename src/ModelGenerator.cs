@@ -10,11 +10,13 @@ public partial class ModelGenerator : MeshInstance3D
 	private List<Tuple<Vector3I, Vector3I>> _buildings;
 	private TerrainGenerator _terrainGenerator;
 	private BuildingGenerator _buildingGenerator;
+	private AgentGenerator _agentGenerator;
 
 	public override void _Ready()
 	{
 		_terrainGenerator = GetNode<TerrainGenerator>("%TerrainGenerator");
 		_buildingGenerator = GetNode<BuildingGenerator>("%BuildingGenerator");
+		_agentGenerator = GetNode<AgentGenerator>("%AgentGenerator");
 	}
 
 	public async void Generate(Graph graph)
@@ -23,8 +25,9 @@ public partial class ModelGenerator : MeshInstance3D
 		_buildings = BuildingGenerator.GenerateInfo(_graph);
 		GenerateModel();
 		await ToSignal(this, "ready");
-		_terrainGenerator.Generate(_graph, _buildings);
+		var heightMap = _terrainGenerator.Generate(_graph, _buildings);
 		_buildingGenerator.GenerateModels(_buildings);
+		_agentGenerator.Generate(_graph, heightMap);
 	}
 
 	private void GenerateModel()

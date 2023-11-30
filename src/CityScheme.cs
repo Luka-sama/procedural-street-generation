@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 
 public partial class CityScheme : Node2D
 {
     public Vector2 UserPosition { get; set; } = Vector2.Zero;
     public bool ShouldDrawTensorField { get; set; }
-    public bool WithGraph { get; set; }
+    public bool WithGraph { get; set; } = true;
     private const float TensorLineDiameter = 20;
     private Vector2 _origin = Vector2.Zero;
     private Vector2 _worldDimensions = new Vector2(1920, 1080);
@@ -23,13 +24,6 @@ public partial class CityScheme : Node2D
         _modelGenerator = GetNode<ModelGenerator>("%Roads");
         GenerateTensorField();
         GenerateStreamlines();
-    }
-
-    public override void _Process(double delta)
-    {
-        if (_end) return;
-        
-        
     }
 
     public override void _Draw()
@@ -83,21 +77,23 @@ public partial class CityScheme : Node2D
         
         var noiseParams = new NoiseParams
         {
-            GlobalNoise = false,
-            NoiseAngleGlobal = 0,
-            NoiseAnglePark = 0,
-            NoiseSizeGlobal = 0,
-            NoiseSizePark = 0
+            GlobalNoise = true,
+            NoiseAngleGlobal = GD.RandRange(30, 60),
+            NoiseSizeGlobal = 2,
         };
 
         _tensorField = new(noiseParams);
-        for (var i = 0; i < 10; i++)
+        var fieldCount = 10;
+        for (var i = 0; i < fieldCount; i++)
         {
-            var centre = new Vector2((float)GD.RandRange(0, _worldDimensions.X - 1), _worldDimensions.Y / (i + 1));
+            var centre = new Vector2(
+                (float)GD.RandRange(0, _worldDimensions.X - 1),
+                Mathf.Lerp(0f, _worldDimensions.Y - 1, (float)i / (fieldCount - 1))
+            );
             var size = GD.RandRange(_worldDimensions.X / 10, _worldDimensions.X / 4);
             
             var decay = 0;//GD.RandRange(0, 50);
-            if (i < 4)
+            if (GD.RandRange(1, 10) <= 3)
             {
                 var theta = GD.RandRange(0, Math.PI / 2);
                 _tensorField.AddGrid(centre, size, decay, theta);
@@ -161,9 +157,7 @@ public partial class CityScheme : Node2D
         var polylineColor = Color.Color8(255, 255, 255, 50);
         var pointColor = Colors.Aqua;
         
-        /*var buildingGenerator = GetNode<BuildingGenerator>("%BuildingGenerator");
-        var polygons = buildingGenerator.Generate(_graph);
-        foreach (var polygon in polygons)
+        /*foreach (var polygon in BuildingGenerator.Polygons)
         {
             var color = new Color(GD.Randf(), GD.Randf(), GD.Randf());
             DrawColoredPolygon(polygon.Select(v => (Vector2)v).ToArray(), color);
@@ -194,7 +188,7 @@ public partial class CityScheme : Node2D
 
     private void DrawTensorField()
     {
-        var color = Colors.Red;
+        var color = Colors.White;
         
         var tensorPoints = GetCrossLocations();
         foreach (var p in tensorPoints)

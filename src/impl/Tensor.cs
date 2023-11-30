@@ -7,7 +7,7 @@ public class Tensor
     private double _theta;
     private double _r;
     private readonly double[] _matrix;
-    private double _angleBetweenRoads;
+    private readonly double _angleBetweenRoads;
 
     public static Tensor Zero => new Tensor(0, new double[] { 0, 0 });
 
@@ -51,7 +51,7 @@ public class Tensor
         return new Tensor(1, new[] { t3, t4 });
     }
 
-    public Tensor Add(Tensor tensor, bool smooth)
+    public void Add(Tensor tensor, bool smooth)
     {
         for (int i = 0; i < _matrix.Length; i++)
         {
@@ -69,7 +69,6 @@ public class Tensor
         }
 
         _oldTheta = true;
-        return this;
     }
 
     public Tensor Scale(double s)
@@ -80,11 +79,11 @@ public class Tensor
     }
 
     // Radians
-    public Tensor Rotate(double theta)
+    public void Rotate(double theta)
     {
         if (theta == 0)
         {
-            return this;
+            return;
         }
 
         double newTheta = Theta + theta;
@@ -101,7 +100,6 @@ public class Tensor
         _matrix[0] = Math.Cos(2 * newTheta) * _r;
         _matrix[1] = Math.Sin(2 * newTheta) * _r;
         _theta = newTheta;
-        return this;
     }
 
     public Vector2 GetMajor()

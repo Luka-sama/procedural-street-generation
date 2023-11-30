@@ -2,8 +2,8 @@
 
 [ext_resource type="Texture2D" path="res://textures/ground037_alb_ht.dds" id="1_tpsol"]
 [ext_resource type="Texture2D" path="res://textures/ground037_nrm_rgh.dds" id="2_2x76a"]
-[ext_resource type="Texture2D" path="res://textures/rock028_alb_ht.dds" id="3_yjogh"]
-[ext_resource type="Texture2D" path="res://textures/rock028_nrm_rgh.dds" id="4_63j5y"]
+[ext_resource type="Texture2D" path="res://textures/asphalt_alb_ht.dds" id="3_yjogh"]
+[ext_resource type="Texture2D" path="res://textures/asphalt_nrm_rgh.dds" id="4_63j5y"]
 
 [sub_resource type="Terrain3DTexture" id="Terrain3DTexture_56fwf"]
 albedo_texture = ExtResource("1_tpsol")

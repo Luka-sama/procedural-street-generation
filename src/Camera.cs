@@ -3,13 +3,8 @@ using System;
 
 public partial class Camera : Camera3D
 {
-	public bool FlightMode { get; set; } = false;
 	private Vector2 _rotation;
 
-	public override void _Ready()
-	{
-	}
-	
 	public override void _Process(double delta)
 	{
 		var input = new Vector3();
@@ -37,10 +32,6 @@ public partial class Camera : Camera3D
 
 		var transform = Transform;
 		transform.Basis = Basis.FromEuler(new Vector3(_rotation.Y, _rotation.X, 0));
-		if (!FlightMode)
-		{
-			transform.Origin.Y = 1.038f;
-		}
 
 		Transform = transform;
 	}
@@ -50,8 +41,8 @@ public partial class Camera : Camera3D
 		if (input is InputEventMouseMotion && Input.IsMouseButtonPressed(MouseButton.Left))
 		{
 			_rotation += (-0.001f) * (input as InputEventMouseMotion).Relative;
-			_rotation.X = _rotation.X % (2 * Mathf.Pi);
-			_rotation.Y = _rotation.Y % (2 * Mathf.Pi);
+			_rotation.X %= Mathf.Tau;
+			_rotation.Y %= Mathf.Tau;
 		}
 	}
 }

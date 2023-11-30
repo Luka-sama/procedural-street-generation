@@ -10,8 +10,12 @@ public class Edge
     
     public List<List<Vector2I>> Polygons { get; set; } = new();
 
-    public bool IsClipped;
+    public bool IsClipped { get; set; }
     public int Width { get; set; }
+
+    public Node3D Agent { get; set; }
+    // true - from edge.From to edge.To; false - from edge.To to edge.From
+    public bool AgentDir { get; set; }
 
     public Edge(Vertex from, Vertex to, int roadNum)
     {
@@ -28,6 +32,8 @@ public class Vertex
 {
     public List<Edge> Edges { get; } = new();
     public Vector2I Point { get; }
+    
+    public Node3D Agent { get; set; }
 
     public Vertex(Vector2I point, List<Edge> edges = null)
     {
@@ -71,7 +77,7 @@ public class Graph
             roadNum++;
         }
         graph.RoadCount = roadNum;
-        //unprocessedEdges = graph.Tessellate(unprocessedEdges);
+        //unprocessedEdges = graph.SamplePoints(unprocessedEdges);
         
         foreach (var streamlineEdges in unprocessedEdges)
         {
@@ -88,7 +94,7 @@ public class Graph
         return graph;
     }
 
-    private List<List<Edge>> Tessellate(List<List<Edge>> edges)
+    private List<List<Edge>> SamplePoints(List<List<Edge>> edges)
     {
         List<List<Edge>> result = new();
         foreach (var streamlineEdges in edges)

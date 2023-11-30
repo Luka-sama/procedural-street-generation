@@ -13,30 +13,8 @@ public abstract class FieldIntegrator
 
     protected Vector2 SampleFieldVector(Vector2 point, bool major)
     {
-        Tensor tensor = _field.SamplePoint(point);
-        if (major)
-            return tensor.GetMajor();
-        return tensor.GetMinor();
-    }
-
-    public bool OnLand(Vector2 point)
-    {
-        return _field.OnLand(point);
-    }
-}
-
-public class EulerIntegrator : FieldIntegrator
-{
-    private readonly StreamlineParams _parameters;
-
-    public EulerIntegrator(TensorField field, StreamlineParams parameters) : base(field)
-    {
-        _parameters = parameters;
-    }
-
-    public override Vector2 Integrate(Vector2 point, bool major)
-    {
-        return SampleFieldVector(point, major) * _parameters.Dstep;
+        var tensor = _field.SamplePoint(point);
+        return (major ? tensor.GetMajor() : tensor.GetMinor());
     }
 }
 

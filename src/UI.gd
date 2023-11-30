@@ -8,7 +8,7 @@ func _init() -> void:
 	RenderingServer.set_debug_generate_wireframes(true)
 
 
-func _process(delta) -> void:
+func _process(_delta) -> void:
 	$Label.text = "FPS: %s\n" % str(Engine.get_frames_per_second())
 	$Label.text += "Move Speed: %.1f\n" % player.MOVE_SPEED if player else ""
 	$Label.text += "Position: %.1v\n" % player.global_position if player else ""
