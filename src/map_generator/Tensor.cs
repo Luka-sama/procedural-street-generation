@@ -3,26 +3,11 @@ using System;
 
 public class Tensor
 {
-    private bool _oldTheta;
     private double _theta;
     private double _r;
     private readonly double[] _matrix;
 
     public static Tensor Zero => new(0, new double[] { 0, 0 });
-
-    private double Theta
-    {
-        get
-        {
-            if (_oldTheta)
-            {
-                _theta = CalculateTheta();
-                _oldTheta = false;
-            }
-
-            return _theta;
-        }
-    }
 
     public Tensor(double r, double[] matrix)
     {
@@ -31,7 +16,6 @@ public class Tensor
         //   1th element, -0th element ]
         _r = r;
         _matrix = matrix;
-        _oldTheta = false;
         _theta = CalculateTheta();
     }
 
@@ -52,13 +36,13 @@ public class Tensor
             _r = 2;
         }
 
-        _oldTheta = true;
+        _theta = CalculateTheta();
     }
 
     public Tensor Scale(double s)
     {
         _r *= s;
-        _oldTheta = true;
+        _theta = CalculateTheta();
         return this;
     }
 
@@ -70,7 +54,7 @@ public class Tensor
             return;
         }
 
-        var newTheta = Theta + theta;
+        var newTheta = _theta + theta;
         if (newTheta < Math.PI)
         {
             newTheta += Math.PI;
@@ -94,7 +78,7 @@ public class Tensor
             return Vector2.Zero;
         }
 
-        return new Vector2((float)Math.Cos(Theta), (float)Math.Sin(Theta));
+        return new Vector2((float)Math.Cos(_theta), (float)Math.Sin(_theta));
     }
 
     public Vector2 GetMinor()
@@ -105,7 +89,7 @@ public class Tensor
             return Vector2.Zero;
         }
 
-        var angle = Theta + Math.PI / 2;
+        var angle = _theta + Math.PI / 2;
         return new Vector2((float)Math.Cos(angle), (float)Math.Sin(angle));
     }
 
